@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Script para generar identidades y nodos.
+# Ejemplo: ./genIdenti -i 10 -n 2
+
+# Parsear input
+while [[ $# -gt 0 ]]; do
+    key=$1
+
+    case $key in
+        -i)
+            NumIdentidades=$2
+            shift
+            shift
+            ;;
+        -n)
+            NumNodos=$2
+            shift
+            shift
+            ;;
+        *) # unknown option
+            echo "Opcion invalida $key"
+            exit 1
+            ;;
+    esac
+done
+
+echo Generando $NumIdentidades identidades y $NumNodos nodos
+
+i=1
+while [[ "$i" -le "$NumNodos" ]]; do
+    echo "Generando nodo$i"
+    i=$(( $i + 1 ))
+done
+
+while [[ "$i" -le $NumIdentidades ]]; do
+    echo "Generando identidad$i"
+    i=$(( $i + 1 ))
+done
