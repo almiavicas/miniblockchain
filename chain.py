@@ -1,5 +1,6 @@
 import hashlib
 from block import Block
+from transaction import Transaction
 
 class Chain():
     def __init__(self, difficulty):

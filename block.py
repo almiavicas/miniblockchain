@@ -1,6 +1,8 @@
 import hashlib
 from time import time
 from datetime import datetime
+import random
+from transaction import Transaction
 
 class Block():
     def __init__(self, transactions, previous_hash):
@@ -15,6 +17,7 @@ class Block():
         self.hash.update(str(self).encode('utf-8'))
         while int(self.hash.hexdigest(), 16) > 2**(256-difficulty):
             self.nonce += 1
+            self.nonce = random.randint(0, 1000000)
             self.hash = hashlib.sha256()
             self.hash.update(str(self).encode('utf-8'))
 
