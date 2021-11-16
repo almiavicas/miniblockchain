@@ -30,10 +30,12 @@ echo Generando $NumIdentidades identidades y $NumNodos nodos
 i=1
 while [[ "$i" -le "$NumNodos" ]]; do
     echo "Generando nodo$i"
+    gpg --batch --yes --passphrase '' --quick-gen-key nodo$i
     i=$(( $i + 1 ))
 done
 
 while [[ "$i" -le $NumIdentidades ]]; do
     echo "Generando identidad$i"
+    gpg --batch --yes --passphrase '' --quick-gen-key identidad$i
     i=$(( $i + 1 ))
 done
