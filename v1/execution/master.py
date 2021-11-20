@@ -4,7 +4,16 @@ from ..semantic.mempool import Mempool
 from ..semantic.chain import Chain
 from ..semantic.transaction import Transaction
 from ..semantic.block import Block
-from neighbor import Neighbor
+
+class Neighbor:
+    def __init__(self, name, port, pub_key):
+        self.name = name
+        self.port = port
+        self.pub_key = pub_key
+        self.is_active = False
+
+    def send_message(self, message):
+        pass
 
 class Master:
     def __init__(self, name: str, neighbors: List[Neighbor]):
