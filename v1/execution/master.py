@@ -1,4 +1,5 @@
 from typing import List
+from logging import getLogger, INFO, basicConfig, StreamHandler, FileHandler, Formatter
 from threading import Thread
 from ..semantic.mempool import Mempool
 from ..semantic.chain import Chain
@@ -16,12 +17,26 @@ class Neighbor:
         pass
 
 class Master:
-    def __init__(self, name: str, neighbors: List[Neighbor]):
+    """
+    Master class is responsible for attending requests from the external world.
+    It works with an event-based execution. It listens to events and triggers
+    tasks upon them.
+    """
+    LOG_FORMAT = "%(asctime)s | %(name)s: %(levelname)s - %(message)s"
+    def __init__(self, name: str, neighbors: List[Neighbor], log_file: str):
         self.name = name
         self.mempool = Mempool()
         self.blockchain = Chain()
         self.neighbors = neighbors
         self.miner = None
+        # Log config
+        basicConfig(level=INFO, format=self.LOG_FORMAT)
+        log = getLogger(name)
+        # Output logs to the log_file specified by the user
+        log.addHandler(FileHandler(log_file))
+        # Output logs to the default console where the script was called from
+        log.addHandler(StreamHandler())
+
 
     def listen(self, port: int):
         pass
