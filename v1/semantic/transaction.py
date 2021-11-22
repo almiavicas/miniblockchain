@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+from hashlib import sha256
 from unit_value import UnitValue
 
 class Transaction:
@@ -20,3 +21,7 @@ class Transaction:
         self.block_hash = block_hash
         assert status in self.VALID_STATUS
         self.status = status
+
+
+
+    
