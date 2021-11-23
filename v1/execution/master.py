@@ -16,7 +16,16 @@ class Neighbor:
         self.is_active = False
 
     def send_message(self, message: str, gpg: GPG):
-        encrypted_message = gpg.encrypt(message, self.name)
+        # The armor=False argument is to get the message as binary data. This is useful
+        # when we want to decrypt the message, because gpg decrypts by default a binary-like
+        # object.
+        encrypted_message = gpg.encrypt(message, self.name, armor=False)
+        # We get an Encript object from this. To check if the encryption succedded, we can
+        # check if the encrypted_message.ok is True.
+        if not encrypted_message.ok:
+            raise Exception("gpg could not encrypt the message `%s`" % message)
+        # To get the encrypted data we need to convert the object to a string.
+        bynary_data = str(encrypted_message)
         pass
 
     def create_neighbors(ports_config: dict, neighbors: List[str], node: str):
