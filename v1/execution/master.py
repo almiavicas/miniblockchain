@@ -1,11 +1,13 @@
 from typing import List
-from logging import getLogger, INFO, basicConfig, StreamHandler, FileHandler
+from argparse import ArgumentParser
+from logging import getLogger, INFO, basicConfig, StreamHandler, FileHandler, Formatter
 from threading import Thread
 from gnupg import GPG
-from ..semantic.mempool import Mempool
-from ..semantic.chain import Chain
-from ..semantic.transaction import Transaction
-from ..semantic.block import Block
+from semantic.mempool import Mempool
+from semantic.chain import Chain
+from semantic.transaction import Transaction
+from semantic.block import Block
+from utils import create_dir, parse_network_file, get_gpg
 
 class Neighbor:
     def __init__(self, name, port, pub_key):
@@ -24,24 +26,29 @@ class Master:
     tasks upon them.
     """
     LOG_FORMAT = "%(asctime)s | %(name)s: %(levelname)s - %(message)s"
-    def __init__(self, name: str, neighbors: List[Neighbor], log_file: str, gpg: GPG):
+    def __init__(self, name: str, neighbors: List[Neighbor], log_file: str, gpg: GPG, port: int):
         self.name = name
         self.mempool = Mempool()
         self.blockchain = Chain()
         self.neighbors = neighbors
         self.gpg = gpg
+        self.port = port
         self.miner = None
         # Log config
         basicConfig(level=INFO, format=self.LOG_FORMAT)
         log = getLogger(name)
         # Output logs to the log_file specified by the user
-        log.addHandler(FileHandler(log_file))
+        formatter = Formatter(fmt=self.LOG_FORMAT)
+        filehandler = FileHandler(log_file)
+        filehandler.setFormatter(formatter)
+        log.addHandler(filehandler)
         # Output logs to the default console where the script was called from
         log.addHandler(StreamHandler())
+        self.log = log
 
 
-    def listen(self, port: int):
-        pass
+    def listen(self):
+        self.log.info("Listening in port %d", self.port)
 
     def present(self):
         pass
@@ -139,7 +146,23 @@ class Master:
 
 
 def main():
-    pass
+    parser = ArgumentParser(description="Node master process for handling events")
+    parser.add_argument("name", help="Name of the node")
+    parser.add_argument("logs_dir", help="Logs folder")
+    parser.add_argument("network_file", help="File describing the nodes names, relations and ports")
+    parser.add_argument("config_file", help="Blockchain config")
+    args = parser.parse_args()
+    print(args.name, args.logs_dir, args.network_file, args.config_file)
+    create_dir(args.logs_dir)
+    network = parse_network_file(args.network_file)
+    print(network)
+    neighbors = network["neighbors_info"][args.name]
+    log_file = f"{args.logs_dir}/{args.name}.log"
+    gpg: GPG = get_gpg()
+    node_port = network["ports_info"][args.name]
+    node = Master(args.name, neighbors, log_file, gpg, node_port)
+    node.listen()
+    
 
 
 if __name__ == "__main__":

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Script para crear nodos.
+# Ejemplo: ./nodo -n nodo1 -d logs/ -f example_network.txt -c config.txt
+
+# Parsear input
+while [[ $# -gt 0 ]]; do
+    key=$1
+
+    case $key in
+        -n)
+            nombreNodo=$2
+            shift
+            shift
+            ;;
+        -d)
+            dirLogs=$2
+            shift
+            shift
+            ;;
+        -f)
+            archivoRed=$2
+            shift
+            shift
+            ;;
+        -c)
+            archivoConfig=$2
+            shift
+            shift
+            ;;
+        *) # unknown option
+            echo "Opcion invalida $key"
+            exit 1
+            ;;
+    esac
+done
+
+gnome-terminal -- python execution/master.py $nombreNodo $dirLogs $archivoRed $archivoConfig

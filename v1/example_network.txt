@@ -1,0 +1,10 @@
+4
+nodo1 3001
+nodo2 3002
+nodo3 3003
+nodo4 3004
+4
+nodo1 nodo2
+nodo1 nodo3
+nodo3 nodo4
+nodo2 nodo4

@@ -1,4 +1,4 @@
-from ..semantic.block import Block
+from semantic.block import Block
 
 class Miner:
     def __init__(self, master_port: int, block: Block):
