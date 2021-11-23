@@ -29,6 +29,14 @@ def parse_network_file(filename: str) -> dict:
         "neighbors_info": neighbors_info,
     }
 
+def parse_config_file(filename: str) -> dict:
+    config = {}
+    with open(filename, encoding="utf-8") as _file:
+        for i in range(3):
+            key, value = _file.readline().split()
+            config[key[:-1].lower()] = int(value)
+    return config
+
 def get_gpg():
     homedir = os.environ.get("HOME", None)
     if homedir is None:

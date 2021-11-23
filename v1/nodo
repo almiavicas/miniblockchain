@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script para crear nodos.
-# Ejemplo: ./nodo -n nodo1 -d logs/ -f example_network.txt -c config.txt
+# Ejemplo: ./nodo -n nodo1 -d logs/ -f example_network.txt -c example_config.txt
 
 # Parsear input
 while [[ $# -gt 0 ]]; do
@@ -35,4 +35,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ -z $(command -v python) ]]; then
+    echo "Please start a python environment to run the python command"
+    exit 1
+fi
 gnome-terminal -- python execution/master.py $nombreNodo $dirLogs $archivoRed $archivoConfig

@@ -1,23 +1,33 @@
 from typing import List
 from argparse import ArgumentParser
-from logging import getLogger, INFO, basicConfig, StreamHandler, FileHandler, Formatter
+from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
 from threading import Thread
 from gnupg import GPG
 from semantic.mempool import Mempool
 from semantic.chain import Chain
 from semantic.transaction import Transaction
 from semantic.block import Block
-from utils import create_dir, parse_network_file, get_gpg
+from utils import create_dir, parse_network_file, get_gpg, parse_config_file
 
 class Neighbor:
-    def __init__(self, name, port, pub_key):
+    def __init__(self, name, port):
         self.name = name
         self.port = port
-        self.pub_key = pub_key
         self.is_active = False
 
-    def send_message(self, message):
+    def send_message(self, message: str, gpg: GPG):
+        encrypted_message = gpg.encrypt(message, self.name)
         pass
+
+    def create_neighbors(ports_config: dict, neighbors: List[str], node: str):
+        """Create the neighbors list for a given node with the specified ports config"""
+        neighbor_nodes = []
+        for name in neighbors:
+            neighbor_nodes.append(Neighbor(name, ports_config[name]))
+        return neighbor_nodes
+
+    def __str__(self):
+        return f"{self.name}: {self.port} ({'IN' if not self.is_active else ''}ACTIVE)"
 
 class Master:
     """
@@ -26,29 +36,41 @@ class Master:
     tasks upon them.
     """
     LOG_FORMAT = "%(asctime)s | %(name)s: %(levelname)s - %(message)s"
-    def __init__(self, name: str, neighbors: List[Neighbor], log_file: str, gpg: GPG, port: int):
+    def __init__(
+        self,
+        name: str,
+        neighbors: List[Neighbor],
+        log_file: str,
+        gpg: GPG,
+        port: int,
+        tamaniomaxbloque: int = 512,
+        tiempopromediocreacionbloque: int = 1,
+        dificultadinicial: int = 1000,
+    ):
         self.name = name
         self.mempool = Mempool()
         self.blockchain = Chain()
         self.neighbors = neighbors
         self.gpg = gpg
         self.port = port
+        self.tamaniomaxbloque = tamaniomaxbloque
+        self.tiempopromediocreacionbloque = tiempopromediocreacionbloque
+        self.dificultadinicial = dificultadinicial
         self.miner = None
-        # Log config
+        # The basic config goes for a default StreamHandler to the console
         basicConfig(level=INFO, format=self.LOG_FORMAT)
-        log = getLogger(name)
+        self.log = getLogger(name)
         # Output logs to the log_file specified by the user
         formatter = Formatter(fmt=self.LOG_FORMAT)
-        filehandler = FileHandler(log_file)
+        filehandler = FileHandler(log_file, mode="w")
         filehandler.setFormatter(formatter)
-        log.addHandler(filehandler)
-        # Output logs to the default console where the script was called from
-        log.addHandler(StreamHandler())
-        self.log = log
+        self.log.addHandler(filehandler)
 
 
     def listen(self):
         self.log.info("Listening in port %d", self.port)
+        for n in self.neighbors:
+            self.log.info(n)
 
     def present(self):
         pass
@@ -156,11 +178,13 @@ def main():
     create_dir(args.logs_dir)
     network = parse_network_file(args.network_file)
     print(network)
-    neighbors = network["neighbors_info"][args.name]
+    config = parse_config_file(args.config_file)
+    print(config)
+    neighbors = Neighbor.create_neighbors(network["ports_info"], network["neighbors_info"][args.name], args.name)
     log_file = f"{args.logs_dir}/{args.name}.log"
     gpg: GPG = get_gpg()
     node_port = network["ports_info"][args.name]
-    node = Master(args.name, neighbors, log_file, gpg, node_port)
+    node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
     node.listen()
     
 
