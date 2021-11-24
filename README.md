@@ -10,7 +10,7 @@ For working with this version, run `cd v1` before runnning any other command lis
 
 ## Identities generation
 ```bash
-./genIdenti -i 10 -n 2
+./genIdenti -i 10 -n 4
 ```
 - The `-i` flag sets the total number of identities that will be generated.
 - The `-n` flag specifies a number of identitites to assign to nodes. Keep in mind that using more nodes than the specified in here will cause errors when encrypting for those extra nodes.
