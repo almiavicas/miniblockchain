@@ -89,11 +89,12 @@ class Master:
         self.present(sock)
         while True:
             data, addr = sock.recvfrom(BUFSIZE)
-            self.log.info("Received from %s a total of %d bytes: %s", addr, len(data), data.decode())
+            self.log.info("Received from %s: %s", addr, data.decode())
 
     def present(self, sock: socket):
         for n in self.neighbors:
-            n.send_message(sock, "Hello world!", self.gpg)
+            self.log.info("Sending message to %s", str(n))
+            n.send_message(sock, "Hello from %s!" %self.name, self.gpg)
 
     def create_miner(self) -> Thread:
         pass
