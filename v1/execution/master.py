@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Any
+from socket import socket, errno, SOCK_DGRAM, AF_INET
 from argparse import ArgumentParser
 from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
 from threading import Thread
@@ -9,29 +10,33 @@ from semantic.transaction import Transaction
 from semantic.block import Block
 from utils import create_dir, parse_network_file, get_gpg, parse_config_file
 
+LOCALHOST = "127.0.0.1"
+BUFSIZE = 4096
+
 class Neighbor:
     def __init__(self, name, port):
         self.name = name
         self.port = port
         self.is_active = False
 
-    def send_message(self, message: str, gpg: GPG):
+    def send_message(self, sock: socket, message: str, gpg: GPG):
         # The armor=False argument is to get the message as binary data. This is useful
         # when we want to decrypt the message, because gpg decrypts by default a binary-like
         # object.
-        encrypted_message = gpg.encrypt(message, self.name, armor=False)
+        # encrypted_message = gpg.encrypt(message, self.name, armor=False)
         # We get an Encript object from this. To check if the encryption succedded, we can
         # check if the encrypted_message.ok is True.
-        if not encrypted_message.ok:
-            raise Exception("gpg could not encrypt the message `%s`" % message)
+        # if not encrypted_message.ok:
+            # raise Exception("gpg could not encrypt the message `%s`" % message)
         # To get the encrypted data we need to convert the object to a string.
-        bynary_data = str(encrypted_message)
-        pass
+        # bynary_data = str(encrypted_message)
+        address = (LOCALHOST, self.port)
+        sock.sendto(message.encode(), address)
 
-    def create_neighbors(ports_config: dict, neighbors: List[str], node: str):
+    def create_neighbors(ports_config: dict, neighbor_names: List[str], node: str) -> List[Any]:
         """Create the neighbors list for a given node with the specified ports config"""
         neighbor_nodes = []
-        for name in neighbors:
+        for name in neighbor_names:
             neighbor_nodes.append(Neighbor(name, ports_config[name]))
         return neighbor_nodes
 
@@ -77,12 +82,18 @@ class Master:
 
 
     def listen(self):
-        self.log.info("Listening in port %d", self.port)
-        for n in self.neighbors:
-            self.log.info(n)
+        sock = socket(AF_INET, SOCK_DGRAM)
+        sock.bind((LOCALHOST, self.port))
+        # sock.listen()
+        self.log.info("Listening on port %d", self.port)
+        self.present(sock)
+        while True:
+            data, addr = sock.recvfrom(BUFSIZE)
+            self.log.info("Received from %s a total of %d bytes: %s", addr, len(data), data.decode())
 
-    def present(self):
-        pass
+    def present(self, sock: socket):
+        for n in self.neighbors:
+            n.send_message(sock, "Hello world!", self.gpg)
 
     def create_miner(self) -> Thread:
         pass
@@ -183,12 +194,12 @@ def main():
     parser.add_argument("network_file", help="File describing the nodes names, relations and ports")
     parser.add_argument("config_file", help="Blockchain config")
     args = parser.parse_args()
-    print(args.name, args.logs_dir, args.network_file, args.config_file)
+    # print(args.name, args.logs_dir, args.network_file, args.config_file)
     create_dir(args.logs_dir)
     network = parse_network_file(args.network_file)
-    print(network)
+    # print(network)
     config = parse_config_file(args.config_file)
-    print(config)
+    # print(config)
     neighbors = Neighbor.create_neighbors(network["ports_info"], network["neighbors_info"][args.name], args.name)
     log_file = f"{args.logs_dir}/{args.name}.log"
     gpg: GPG = get_gpg()

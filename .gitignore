@@ -4,4 +4,4 @@ __pycache__
 *.pyc
 
 # app logs
-logs/
+*.log
