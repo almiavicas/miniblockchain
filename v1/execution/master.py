@@ -1,4 +1,5 @@
-from typing import List, Any
+from typing import List, Dict
+import json
 from socket import socket, errno, SOCK_DGRAM, AF_INET
 from argparse import ArgumentParser
 from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
@@ -8,40 +9,17 @@ from semantic.mempool import Mempool
 from semantic.chain import Chain
 from semantic.transaction import Transaction
 from semantic.block import Block
-from utils import create_dir, parse_network_file, get_gpg, parse_config_file
+from neighbor import Neighbor, create_neighbors
+from utils import (
+    create_dir,
+    parse_network_file,
+    get_gpg,
+    parse_config_file,
+    Event,
+    LOCALHOST,
+    BUFSIZE,
+)
 
-LOCALHOST = "127.0.0.1"
-BUFSIZE = 4096
-
-class Neighbor:
-    def __init__(self, name, port):
-        self.name = name
-        self.port = port
-        self.is_active = False
-
-    def send_message(self, sock: socket, message: str, gpg: GPG):
-        # The armor=False argument is to get the message as binary data. This is useful
-        # when we want to decrypt the message, because gpg decrypts by default a binary-like
-        # object.
-        # encrypted_message = gpg.encrypt(message, self.name, armor=False)
-        # We get an Encript object from this. To check if the encryption succedded, we can
-        # check if the encrypted_message.ok is True.
-        # if not encrypted_message.ok:
-            # raise Exception("gpg could not encrypt the message `%s`" % message)
-        # To get the encrypted data we need to convert the object to a string.
-        # bynary_data = str(encrypted_message)
-        address = (LOCALHOST, self.port)
-        sock.sendto(message.encode(), address)
-
-    def create_neighbors(ports_config: dict, neighbor_names: List[str], node: str) -> List[Any]:
-        """Create the neighbors list for a given node with the specified ports config"""
-        neighbor_nodes = []
-        for name in neighbor_names:
-            neighbor_nodes.append(Neighbor(name, ports_config[name]))
-        return neighbor_nodes
-
-    def __str__(self):
-        return f"{self.name}: {self.port} ({'IN' if not self.is_active else ''}ACTIVE)"
 
 class Master:
     """
@@ -53,7 +31,7 @@ class Master:
     def __init__(
         self,
         name: str,
-        neighbors: List[Neighbor],
+        neighbors: Dict[str, Neighbor],
         log_file: str,
         gpg: GPG,
         port: int,
@@ -88,13 +66,27 @@ class Master:
         self.log.info("Listening on port %d", self.port)
         self.present(sock)
         while True:
-            data, addr = sock.recvfrom(BUFSIZE)
-            self.log.info("Received from %s: %s", addr, data.decode())
+            message, addr = sock.recvfrom(BUFSIZE)
+            self.handle_message(message, addr, sock)
+            message_dict = json.loads(message.decode())
+
+
+    def handle_message(self, message: bytes, address: tuple, sock: socket):
+        decoded_message = json.loads(message.decode())
+        event = decoded_message["event"]
+        data = decoded_message["data"]
+        if event == Event.PRESENTATION.value:
+            self.event_presentation(data, sock)
+        elif event == Event.PRESENTATION_ACK.value:
+            self.event_presentation_ack(data)
+
 
     def present(self, sock: socket):
-        for n in self.neighbors:
-            self.log.info("Sending message to %s", str(n))
-            n.send_message(sock, "Hello from %s!" %self.name, self.gpg)
+        for n in self.neighbors.values():
+            self.log.info("Sending Presentation to %s", str(n))
+            data = {"name": self.name}
+            n.send_message(sock, Event.PRESENTATION.value, data, self.gpg)
+
 
     def create_miner(self) -> Thread:
         pass
@@ -102,11 +94,17 @@ class Master:
     def destroy_miner(self):
         pass
 
-    def event_presentation(self):
-        pass
+    def event_presentation(self, data: dict, sock: socket):
+        n = self.neighbors[data["name"]]
+        n.is_active = True
+        self.log.info("%s received from %s", Event.PRESENTATION, str(n))
+        data = {"name": self.name}
+        n.send_message(sock, Event.PRESENTATION_ACK.value, data, self.gpg)
 
-    def event_presentation_ack(self, neighbor_name: str):
-        pass
+    def event_presentation_ack(self, data: dict):
+        n = self.neighbors[data["name"]]
+        n.is_active = True
+        self.log.info("%s received from %s", Event.PRESENTATION_ACK, str(n))
 
     def event_new_transaction(signature: str, pub_key: str):
         tx = self.decrypt_transaction(signature, pub_key)
@@ -201,7 +199,7 @@ def main():
     # print(network)
     config = parse_config_file(args.config_file)
     # print(config)
-    neighbors = Neighbor.create_neighbors(network["ports_info"], network["neighbors_info"][args.name], args.name)
+    neighbors = create_neighbors(network["ports_info"], network["neighbors_info"][args.name], args.name)
     log_file = f"{args.logs_dir}/{args.name}.log"
     gpg: GPG = get_gpg()
     node_port = network["ports_info"][args.name]

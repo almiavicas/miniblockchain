@@ -1,6 +1,21 @@
 import os
+from enum import Enum
 from gnupg import GPG
 
+LOCALHOST = "127.0.0.1"
+BUFSIZE = 4096
+
+Event = Enum("Event", (
+    "PRESENTATION",
+    "PRESENTATION_ACK",
+    "NEW_TRANSACTION",
+    "NEW_TRANSACTION_ACK",
+    "TRANSACTION",
+    "TRANSACTION_ACK",
+    "BLOCK",
+    "BLOCK_ACK",
+    )
+)
 
 def create_dir(dirname: str):
     directory = os.path.dirname(dirname)
