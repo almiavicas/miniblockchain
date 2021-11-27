@@ -68,6 +68,9 @@ class Block():
     def set_difficulty(self, difficulty):
         self.difficulty = difficulty
 
+    def updateTimeStamp(self):
+        self.timestamp = time()
+
     def find_merkle_tree_root(self) -> str:
         """
         Build the merkle tree from transactions and return the root hash.
