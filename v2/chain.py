@@ -28,6 +28,14 @@ class Chain():
         origin = Block("Origin", h)
         origin.mine(self.difficulty)
         self.blocks.append(origin)
+        print("\n\n==================")
+        print("Previous Hash:\t", origin.previous_hash.hexdigest())
+        print("Hash:\t\t", origin.hash.hexdigest())
+        print("Index:\t\t", origin.index)
+        print("Nonce:\t\t", origin.nonce)
+        print("Transactions:\t", origin.transactions)
+        print("Timestamp:", origin.get_timestamp_formatted())
+        print("\n\n==================")
         
     def mine(self):
         if len(self.pool) > 0:

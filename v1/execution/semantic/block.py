@@ -1,10 +1,11 @@
-from hashlib import sha256
-from typing import Optional
-from collections import OrderedDict
+import hashlib
+from time import time
 from datetime import datetime
+import random
+from collections import OrderedDict
 from .transaction import Transaction
 
-class Block:
+class Block():
     """
     Block representation.
     A block is an object containing transactions inside a blockchain. Each
@@ -44,27 +45,24 @@ class Block:
         The merkle_tree_root of the transactions tree. It should only be
         given when the block is propagated from another node.
     """
-    def __init__(self,
-        parent_hash: str,
-        transactions: OrderedDict,
-        index: int,
-        difficulty: int,
-        _hash: Optional[str] = None,
-        nonce: Optional[int] = None,
-        timestamp: Optional[datetime] = None,
-        merkle_tree_root: Optional[str] = None,
-    ):
-        self.transactions = transactions
-        self.parent_hash = parent_hash
+    def __init__(self, previous_hash = None, index = 0, transactions: OrderedDict = None):
         self.index = index
+        self.hash = hashlib.sha256()
+        self.timestamp = time()
+        self.previous_hash = previous_hash
+        self.nonce = 0
+        self.difficulty = 0
+        self.transactions = transactions
+        self.merkle_tree_root = None
+        
+    def mine(self, difficulty):
         self.difficulty = difficulty
-        if _hash is None:
-            self._hash = sha256(datetime.now().isoformat().encode("utf-8")).digest().hex()
-        else:
-            self._hash = _hash
-        self.nonce = nonce
-        self.timestamp = timestamp
-        self.merkle_tree_root = merkle_tree_root
+        self.hash.update(str(self).encode('utf-8'))
+        while int(self.hash.hexdigest(), 16) > 2**(256-difficulty):
+            self.nonce += 1
+            self.nonce = random.randint(0, 10000000)
+            self.hash = hashlib.sha256()
+            self.hash.update(str(self).encode('utf-8'))
 
     def find_merkle_tree_root(self) -> str:
         """
@@ -72,12 +70,26 @@ class Block:
         """
         pass
 
-    def mine(self):
-        """
-        Mine the block with the given difficulty.
-        """
-        pass
-
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
         pass
 
+    def print_block(self):
+        print("\n\n==================")
+        if(self.previous_hash):
+            print("Previous Hash:\t", self.previous_hash.hexdigest())
+        print("Hash:\t\t", self.hash.hexdigest())
+        print("Index:\t\t", self.index)
+        print("Nonce:\t\t", self.nonce)
+        print("Transactions:\t", self.transactions)
+        print("Difficulty:", self.difficulty)
+        print("Timestamp:", self.get_timestamp_formatted())
+        print("\n\n==================")
+
+    def set_index(self, previous_index):
+        self.index = previous_index + 1
+
+    def get_timestamp_formatted(self):
+        return datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        
+    def __str__(self):
+        return "{}{}{}".format(self.previous_hash.hexdigest() if self.previous_hash else self.previous_hash, self.transactions, self.nonce)
