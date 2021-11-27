@@ -112,7 +112,8 @@ class Master:
             if last_block[0]:
                 miner = Miner(self.port, Block(last_block[0], self.chain.length()), difficulty, last_block[0])
                 block_mined = miner.mine()
-                if miner.proof_of_work():
+                last_block = self.chain.last_block()
+                if miner.proof_of_work(last_block[0]):
                     self.propagate_candidate_block(block_mined, sock)
                     self.chain.insert_block(block_mined)
             sleep(5)
@@ -290,8 +291,6 @@ def main():
         config["tiempopromediocreacionbloque"],
         config["dificultadinicial"],
     )
-    node.create_miner()
-    node.miner = Thread(target=node.create_miner)
     node.listen()
 
 

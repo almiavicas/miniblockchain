@@ -14,10 +14,10 @@ class Miner:
         self.difficulty = difficulty
         self.parent_hash = parent_hash
 
-    def proof_of_work(self):
+    def proof_of_work(self, last_block_hash):
         hash = sha256()
         hash.update(str(self.block).encode('utf-8'))
-        return self.block.hash.hexdigest() == hash.hexdigest() and int(hash.hexdigest(), 16) < 2**(256-self.difficulty) and self.block.previous_hash == (self.parent_hash if self.parent_hash else None)
+        return self.block.hash.hexdigest() == hash.hexdigest() and int(hash.hexdigest(), 16) < 2**(256-self.difficulty) and self.block.previous_hash == last_block_hash
 
     def mine(self):
         self._mine()
