@@ -6,6 +6,7 @@ from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
 from threading import Thread
 import hashlib
 from time import sleep
+from json import dumps
 from gnupg import GPG
 from semantic.mempool import Mempool
 from semantic.chain import Chain
@@ -64,12 +65,13 @@ class Master:
 
     def listen(self):
         self.create_origin_block()
-        self.miner.start()
         sock = socket(AF_INET, SOCK_DGRAM)
         sock.bind((LOCALHOST, self.port))
         # sock.listen()
         self.log.info("Listening on port %d", self.port)
         self.present(sock)
+        self.miner = Thread(target=self.create_miner, args=(sock,))
+        self.miner.start()
         while True:
             message, addr = sock.recvfrom(BUFSIZE)
             self.handle_message(message, addr, sock)
@@ -88,6 +90,11 @@ class Master:
             self.event_presentation(data, sock)
         elif event == Event.PRESENTATION_ACK.value:
             self.event_presentation_ack(data)
+        elif event == Event.BLOCK.value:
+            data = json.loads(str(data))
+            self.event_block(json.loads(str(data["block"])), data["name"], sock)
+        elif event == Event.BLOCK_ACK.value:
+            self.event_block_ack(data)
 
 
     def present(self, sock: socket):
@@ -97,16 +104,27 @@ class Master:
             n.send_message(sock, Event.PRESENTATION.value, data, self.gpg)
 
 
-    def create_miner(self) -> Thread:
+    def create_miner(self, sock: socket) -> Thread:
         while True:
             difficulty = 15
             last_block = self.chain.last_block()
             if last_block[0]:
                 miner = Miner(self.port, Block(last_block[0], self.chain.length()), difficulty, last_block[0])
                 block_mined = miner.mine()
-                self.chain.insert_block(block_mined)
+                if miner.proof_of_work():
+                    self.propagate_candidate_block(block_mined, sock)
+                    self.chain.insert_block(block_mined)
             sleep(5)
 
+    def propagate_candidate_block(self, block, sock: socket):
+        for n in self.neighbors.values():
+            self.log.info("Propagate candidate block to %s", str(n))
+            data = dumps({
+                "block": block.parser_json(),
+                "name": self.name
+            })
+            print(data[0])
+            n.send_message(sock, Event.BLOCK.value, data, self.gpg)
 
     def destroy_miner(self):
         pass
@@ -123,25 +141,29 @@ class Master:
         n.is_active = True
         self.log.info("%s received from %s", Event.PRESENTATION_ACK, str(n))
 
-    def event_new_transaction(signature: str, pub_key: str):
+    def event_new_transaction(self, signature: str, pub_key: str, sock: socket):
         tx = self.decrypt_transaction(signature, pub_key)
         self.validate_transaction(tx)
         pass
 
-    def event_new_transaction_ack():
+    def event_new_transaction_ack(self):
         pass
 
-    def event_transaction(signature: str, pub_key: str, neighbor_name: str):
+    def event_transaction(self, signature: str, pub_key: str, neighbor_name: str, sock: socket):
         pass
 
-    def event_transaction_ack(neighbor_name: str):
+    def event_transaction_ack(self, neighbor_name: str):
         pass
 
-    def event_block(block: Block, neighbor_name: str):
-        pass
+    def event_block(self, block, neighbor_name: str, sock: socket):
+        n = self.neighbors[neighbor_name]
+        self.log.info("%s received from %s", Event.BLOCK, str(n))
+        data = {"name": self.name}
+        n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
 
-    def event_block_ack(neighbor_name: str):
-        pass
+    def event_block_ack(self, data: dict):
+        n = self.neighbors[data["name"]]
+        self.log.info("%s received from %s", Event.BLOCK_ACK, str(n))
 
     def decrypt_transaction(signature: str, pub_key: str) -> Transaction:
         pass
@@ -223,7 +245,6 @@ def main():
     neighbors = create_neighbors(network["ports_info"], neighbors_info, nodes_fingerprints)
     node_port = network["ports_info"][args.name]
     node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
-    node.miner = Thread(target=node.create_miner)
     node.listen()
     
 
