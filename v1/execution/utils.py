@@ -1,4 +1,5 @@
 import os
+from typing import List, Dict, Any
 from enum import Enum
 from gnupg import GPG
 
@@ -25,7 +26,7 @@ def create_dir(dirname: str):
         print("Creating directory", directory)
         os.mkdir(directory)
 
-def parse_network_file(filename: str) -> dict:
+def parse_network_file(filename: str) -> Dict[str, Any]:
     ports_info = {}
     neighbors_info = {}
     with open(filename, encoding="utf-8") as _file:
@@ -52,9 +53,18 @@ def parse_config_file(filename: str) -> dict:
             config[key[:-1].lower()] = int(value)
     return config
 
-def get_gpg():
+def get_gpg() -> GPG:
     homedir = os.environ.get("HOME", None)
     if homedir is None:
         print("You must set the HOME environment variable to the parent of the .gnupg folder")
     gnupghome = f"{homedir}/.gnupg"
     return GPG(gnupghome=gnupghome)
+
+def get_nodes_fingerprints(gpg: GPG) -> Dict[str, str]:
+    keys = gpg.list_keys()
+    nodes_fingerprints = {}
+    for key in keys:
+        for uid in key["uids"]:
+            if uid.startswith("nodo"):
+                nodes_fingerprints[uid] = key["fingerprint"]
+    return nodes_fingerprints

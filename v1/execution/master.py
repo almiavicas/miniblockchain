@@ -14,6 +14,7 @@ from utils import (
     create_dir,
     parse_network_file,
     get_gpg,
+    get_nodes_fingerprints,
     parse_config_file,
     Event,
     LOCALHOST,
@@ -68,11 +69,13 @@ class Master:
         while True:
             message, addr = sock.recvfrom(BUFSIZE)
             self.handle_message(message, addr, sock)
-            message_dict = json.loads(message.decode())
 
 
     def handle_message(self, message: bytes, address: tuple, sock: socket):
-        decoded_message = json.loads(message.decode())
+        decrypted_message = self.gpg.decrypt(message.decode())
+        if not decrypted_message.ok:
+            raise Exception("Decryption failed with status %s" % decrypted_message.status)
+        decoded_message = json.loads(str(decrypted_message))
         event = decoded_message["event"]
         data = decoded_message["data"]
         if event == Event.PRESENTATION.value:
@@ -199,9 +202,11 @@ def main():
     # print(network)
     config = parse_config_file(args.config_file)
     # print(config)
-    neighbors = create_neighbors(network["ports_info"], network["neighbors_info"][args.name], args.name)
     log_file = f"{args.logs_dir}/{args.name}.log"
     gpg: GPG = get_gpg()
+    nodes_fingerprints = get_nodes_fingerprints(gpg)
+    neighbors_info = network["neighbors_info"][args.name]
+    neighbors = create_neighbors(network["ports_info"], neighbors_info, nodes_fingerprints)
     node_port = network["ports_info"][args.name]
     node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
     node.listen()
