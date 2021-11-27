@@ -1,5 +1,6 @@
 from hashlib import sha256
 from time import time
+from json import dumps
 from datetime import datetime
 from collections import OrderedDict
 from .transaction import Transaction
@@ -94,5 +95,17 @@ class Block():
     def get_timestamp_formatted(self):
         return datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S')
         
+    def parser_json(self):
+        return dumps({
+            "index": self.index,
+            "hash": self.hash.hexdigest(),
+            "timestamp": self.get_timestamp_formatted(),
+            "previous_hash": self.previous_hash,
+            "nonce":self.nonce,
+            "difficulty": self.difficulty,
+            "transactions": 'self.transactions',
+            "merkle_tree_roo": self.merkle_tree_root,
+        })
+
     def __str__(self):
         return "{}{}{}".format(self.previous_hash if self.previous_hash else self.previous_hash, self.transactions, self.nonce)
