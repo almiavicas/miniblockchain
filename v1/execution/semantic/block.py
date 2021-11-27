@@ -54,15 +54,19 @@ class Block():
         self.difficulty = 0
         self.transactions = transactions
         self.merkle_tree_root = None
-        
-    def mine(self, difficulty):
-        self.difficulty = difficulty
+
+    def set_nonce(self, nonce):
+        self.nonce = nonce
+
+    def set_hash(self, hash):
+        self.hash = hash
+        self.update_hash()
+
+    def update_hash(self):
         self.hash.update(str(self).encode('utf-8'))
-        while int(self.hash.hexdigest(), 16) > 2**(256-difficulty):
-            self.nonce += 1
-            self.nonce = random.randint(0, 10000000)
-            self.hash = hashlib.sha256()
-            self.hash.update(str(self).encode('utf-8'))
+
+    def set_difficulty(self, difficulty):
+        self.difficulty = difficulty
 
     def find_merkle_tree_root(self) -> str:
         """
@@ -76,7 +80,7 @@ class Block():
     def print_block(self):
         print("\n\n==================")
         if(self.previous_hash):
-            print("Previous Hash:\t", self.previous_hash.hexdigest())
+            print("Previous Hash:\t", self.previous_hash)
         print("Hash:\t\t", self.hash.hexdigest())
         print("Index:\t\t", self.index)
         print("Nonce:\t\t", self.nonce)
@@ -92,4 +96,4 @@ class Block():
         return datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S')
         
     def __str__(self):
-        return "{}{}{}".format(self.previous_hash.hexdigest() if self.previous_hash else self.previous_hash, self.transactions, self.nonce)
+        return "{}{}{}".format(self.previous_hash if self.previous_hash else self.previous_hash, self.transactions, self.nonce)

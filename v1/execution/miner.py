@@ -15,12 +15,20 @@ class Miner:
         return self.block.hash.hexdigest() == hash.hexdigest() and int(hash.hexdigest(), 16) < 2**(256-self.difficulty) and self.block.previous_hash == (self.parent_hash if self.parent_hash else None)
 
     def mine(self):
-        self.block.mine(self.difficulty)
+        self._mine()
         self.block.print_block()
         self.send_block()
         return self.block
 
+    def _mine(self):
+        self.block.set_difficulty(self.difficulty)
+        self.block.hash.update(str(self.block).encode('utf-8'))
+        while int(self.block.hash.hexdigest(), 16) > 2**(256-self.difficulty):
+            self.block.set_nonce(random.randint(0, 10000000))
+            self.block.set_hash(hashlib.sha256())
+
 
     def send_block(self):
-        print('send block!')
+        if self.proof_of_work():
+            print('send block!')
         pass

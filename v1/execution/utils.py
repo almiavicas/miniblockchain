@@ -58,7 +58,11 @@ def get_gpg() -> GPG:
     if homedir is None:
         print("You must set the HOME environment variable to the parent of the .gnupg folder")
     gnupghome = f"{homedir}/.gnupg"
-    return GPG(gnupghome=gnupghome)
+    print(gnupghome)
+    try:
+        return GPG(gnupghome=gnupghome) 
+    except TypeError:
+        return GPG(homedir=gnupghome)
 
 def get_nodes_fingerprints(gpg: GPG) -> Dict[str, str]:
     keys = gpg.list_keys()
