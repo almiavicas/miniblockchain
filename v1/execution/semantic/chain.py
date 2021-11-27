@@ -16,12 +16,11 @@ class Chain():
         pass
 
     def insert_block(self, block: Block):
-        self.blockchain[block.hash] = block
+        self.blockchain[block.hash.hexdigest()] = block
 
     def last_block(self):
         els = list(self.blockchain.items())
         return els[-1] if els else None
 
     def length(self):
-        els = list(self.blockchain.items())
-        return len(els)
+        return len(list(self.blockchain.items()))
