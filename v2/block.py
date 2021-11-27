@@ -21,6 +21,7 @@ class Block():
             self.hash = hashlib.sha256()
             self.hash.update(str(self).encode('utf-8'))
 
+
     def set_index(self, previous_index):
         self.index = previous_index + 1
 

@@ -1,19 +1,27 @@
-from collections import OrderedDict
+import hashlib
 from .block import Block
 from .transaction import Transaction
-
-class Chain:
+from collections import OrderedDict
+class Chain():
     def __init__(self):
         self.blockchain = OrderedDict()
 
-    def find_block_by_height(height: int) -> Block:
+    def find_block_by_height(self, height: int) -> Block:
         pass
 
-    def find_tx_by_hash(tx_hash: str) -> Transaction:
+    def find_tx_by_hash(self, tx_hash: str) -> Transaction:
         pass
 
-    def validate_block(block: Block) -> bool:
+    def validate_block(self, block: Block) -> bool:
         pass
 
-    def insert_block(block: Block):
-        pass
+    def insert_block(self, block: Block):
+        self.blockchain[block.hash] = block
+
+    def last_block(self):
+        els = list(self.blockchain.items())
+        return els[-1] if els else None
+
+    def length(self):
+        els = list(self.blockchain.items())
+        return len(els)

@@ -4,11 +4,13 @@ from socket import socket, errno, SOCK_DGRAM, AF_INET
 from argparse import ArgumentParser
 from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
 from threading import Thread
+import hashlib
 from gnupg import GPG
 from semantic.mempool import Mempool
 from semantic.chain import Chain
 from semantic.transaction import Transaction
 from semantic.block import Block
+from miner import Miner
 from neighbor import Neighbor, create_neighbors
 from utils import (
     create_dir,
@@ -20,7 +22,6 @@ from utils import (
     LOCALHOST,
     BUFSIZE,
 )
-
 
 class Master:
     """
@@ -42,7 +43,7 @@ class Master:
     ):
         self.name = name
         self.mempool = Mempool()
-        self.blockchain = Chain()
+        self.chain = Chain()
         self.neighbors = neighbors
         self.gpg = gpg
         self.port = port
@@ -94,7 +95,19 @@ class Master:
 
 
     def create_miner(self) -> Thread:
-        pass
+        difficulty = 10
+        origin = Block()
+        miner = Miner(000, origin, difficulty, origin)
+        block_mined = miner.mine()
+        print(block_mined)
+        self.chain.insert_block(block_mined)
+
+        difficulty = 15
+        ## Creando un bloque nuevo después del bloque origin
+        last_block = self.chain.last_block()
+        if last_block[0]:
+            miner = Miner(000, Block(last_block[0], self.chain.length()), difficulty, last_block[0])
+            block_mined = miner.mine()
 
     def destroy_miner(self):
         pass
@@ -181,7 +194,7 @@ class Master:
             stack.append(self.stack[-1])
 
         def op_hash256(self, stack: List[str]):
-            stack.append(sha256(stack.pop().encode("utf-8")).digest().hex())
+            stack.append(hashlib.sha256(stack.pop().encode("utf-8")).digest().hex())
 
         def op_equalverify(self, stack: List[str]):
             pub_key_hash = stack.pop()
@@ -200,9 +213,9 @@ def main():
     parser.add_argument("config_file", help="Blockchain config")
     args = parser.parse_args()
     # print(args.name, args.logs_dir, args.network_file, args.config_file)
+
     create_dir(args.logs_dir)
     network = parse_network_file(args.network_file)
-    # print(network)
     config = parse_config_file(args.config_file)
     # print(config)
     log_file = f"{args.logs_dir}/{args.name}.log"
@@ -212,6 +225,7 @@ def main():
     neighbors = create_neighbors(network["ports_info"], neighbors_info, nodes_fingerprints)
     node_port = network["ports_info"][args.name]
     node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
+    node.create_miner()
     node.listen()
     
 
