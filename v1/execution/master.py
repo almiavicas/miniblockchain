@@ -63,6 +63,8 @@ class Master:
 
 
     def listen(self):
+        self.create_origin_block()
+        self.miner.start()
         sock = socket(AF_INET, SOCK_DGRAM)
         sock.bind((LOCALHOST, self.port))
         # sock.listen()
@@ -72,6 +74,8 @@ class Master:
             message, addr = sock.recvfrom(BUFSIZE)
             self.handle_message(message, addr, sock)
 
+    def create_origin_block(self):
+        self.chain.insert_block(Block())
 
     def handle_message(self, message: bytes, address: tuple, sock: socket):
         decrypted_message = self.gpg.decrypt(message.decode())
@@ -219,8 +223,7 @@ def main():
     neighbors = create_neighbors(network["ports_info"], neighbors_info, nodes_fingerprints)
     node_port = network["ports_info"][args.name]
     node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
-    miner_thread = Thread(target=node.create_miner)
-    miner_thread.start()
+    node.miner = Thread(target=node.create_miner)
     node.listen()
     
 
