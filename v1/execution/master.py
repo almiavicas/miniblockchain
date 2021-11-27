@@ -82,6 +82,8 @@ class Master:
             self.event_presentation(data, sock)
         elif event == Event.PRESENTATION_ACK.value:
             self.event_presentation_ack(data)
+        elif event == Event.NEW_TRANSACTION.value:
+            self.event_new_transaction(data)
 
 
     def present(self, sock: socket):
@@ -109,7 +111,8 @@ class Master:
         n.is_active = True
         self.log.info("%s received from %s", Event.PRESENTATION_ACK, str(n))
 
-    def event_new_transaction(signature: str, pub_key: str):
+    def event_new_transaction(data: dict):
+        signature, pub_key = data["signature"], data["pub_key"]
         tx = self.decrypt_transaction(signature, pub_key)
         self.validate_transaction(tx)
         pass
