@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
 from threading import Thread
 import hashlib
+from time import sleep
 from gnupg import GPG
 from semantic.mempool import Mempool
 from semantic.chain import Chain
@@ -93,19 +94,15 @@ class Master:
 
 
     def create_miner(self) -> Thread:
-        difficulty = 10
-        origin = Block()
-        miner = Miner(000, origin, difficulty, origin)
-        block_mined = miner.mine()
-        print(block_mined)
-        self.chain.insert_block(block_mined)
+        while True:
+            difficulty = 15
+            last_block = self.chain.last_block()
+            if last_block[0]:
+                miner = Miner(self.port, Block(last_block[0], self.chain.length()), difficulty, last_block[0])
+                block_mined = miner.mine()
+                self.chain.insert_block(block_mined)
+            sleep(5)
 
-        difficulty = 15
-        ## Creando un bloque nuevo después del bloque origin
-        last_block = self.chain.last_block()
-        if last_block[0]:
-            miner = Miner(000, Block(last_block[0], self.chain.length()), difficulty, last_block[0])
-            block_mined = miner.mine()
 
     def destroy_miner(self):
         pass
@@ -222,7 +219,8 @@ def main():
     neighbors = create_neighbors(network["ports_info"], neighbors_info, nodes_fingerprints)
     node_port = network["ports_info"][args.name]
     node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
-    node.create_miner()
+    miner_thread = Thread(target=node.create_miner)
+    miner_thread.start()
     node.listen()
     
 

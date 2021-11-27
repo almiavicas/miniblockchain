@@ -5,6 +5,7 @@ from collections import OrderedDict
 class Chain():
     def __init__(self):
         self.blockchain = OrderedDict()
+        self.insert_block(Block())
 
     def find_block_by_height(self, height: int) -> Block:
         pass
