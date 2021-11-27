@@ -67,7 +67,6 @@ class Master:
         self.miner.start()
         sock = socket(AF_INET, SOCK_DGRAM)
         sock.bind((LOCALHOST, self.port))
-        # sock.listen()
         self.log.info("Listening on port %d", self.port)
         self.present(sock)
         while True:
@@ -89,7 +88,7 @@ class Master:
         elif event == Event.PRESENTATION_ACK.value:
             self.event_presentation_ack(data)
         elif event == Event.NEW_TRANSACTION.value:
-            self.event_new_transaction(data)
+            self.event_new_transaction(data, address, sock)
 
 
     def present(self, sock: socket):
@@ -113,6 +112,7 @@ class Master:
     def destroy_miner(self):
         pass
 
+
     def event_presentation(self, data: dict, sock: socket):
         n = self.neighbors[data["name"]]
         n.is_active = True
@@ -120,37 +120,58 @@ class Master:
         data = {"name": self.name}
         n.send_message(sock, Event.PRESENTATION_ACK.value, data, self.gpg)
 
+
     def event_presentation_ack(self, data: dict):
         n = self.neighbors[data["name"]]
         n.is_active = True
         self.log.info("%s received from %s", Event.PRESENTATION_ACK, str(n))
 
-    def event_new_transaction(self, data: dict):
+
+    def event_new_transaction(self, data: dict, address: tuple, sock: socket):
         signature, fingerprint = data["signature"], data["fingerprint"]
         tx = self.decrypt_transaction(signature, fingerprint)
         self.validate_transaction(tx)
         pass
 
-    def event_new_transaction_ack():
+
+    def event_new_transaction_ack(self, data: dict):
         pass
 
-    def event_transaction(signature: str, pub_key: str, neighbor_name: str):
+
+    def event_transaction(self, data: dict, sock: socket):
         pass
 
-    def event_transaction_ack(neighbor_name: str):
+
+    def event_transaction_ack(self, data: dict):
         pass
 
-    def event_block(block: Block, neighbor_name: str):
+
+    def event_block(self, data: dict, sock: socket):
         pass
 
-    def event_block_ack(neighbor_name: str):
+
+    def event_block_ack(self, data: dict):
         pass
+
+
+    def event_block_explore(self, data: dict, addres: tuple, sock: socket):
+        pass
+
+
+    def event_transaction_explore(self, data: dict, addres: tuple, sock: socket):
+        pass
+
+
+    def event_log_dir(self, data: dict):
+        pass
+
 
     def decrypt_transaction(self, signature: str, fingerprint: str) -> Transaction:
         verified = self.gpg.verify(signature)
         self.log.info("Message signed by fringerprint %s", verified.fingerprint)
         decrypted_message = self.gpg.decrypt(signature)
         self.log.info("Received %s", str(decrypted_message))
+
 
     def validate_transaction(tx: Transaction):
         """
@@ -162,6 +183,7 @@ class Master:
             validate.
         """
         pass
+
 
     class Script:
         "P2SH script"
@@ -241,7 +263,6 @@ def main():
     node.create_miner()
     node.miner = Thread(target=node.create_miner)
     node.listen()
-    
 
 
 if __name__ == "__main__":

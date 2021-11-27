@@ -35,15 +35,16 @@ class TransactionGenerator:
         self.nodes_config = nodes_config
         self.identities_fingerprints = identities_fingerprints
         self.gpg = gpg
+        self.sock = sock = socket(AF_INET, SOCK_DGRAM)
         basicConfig(level=INFO, format=self.LOG_FORMAT)
         self.log = getLogger("genTransac")
 
     def start(self):
+        self.load_genesis_block_outputs()
         sender = choice(list(self.identities_fingerprints.keys()))
         self.log.info("Creating transaction from %s", sender)
         receiver_node = choice(list(self.nodes_config.keys()))
         self.log.info("Sending Transaction to node %s", receiver_node)
-        sock = socket(AF_INET, SOCK_DGRAM)
         event = Event.NEW_TRANSACTION.value
         data = "hello_world!"
         fingerprint = self.identities_fingerprints[sender]
@@ -56,10 +57,25 @@ class TransactionGenerator:
                 "signature": str(signed_data),
             },
         })
-        encrypted_message = self.gpg.encrypt(message, receiver_node, armor=False)
+        self.send_message(message, receiver_node)
+
+    def load_genesis_block_outputs(self):
+        message = dumps({
+            "event": Event.BLOCK_EXPLORE.value,
+            "data": {
+                "height": 0,
+            }
+        })
+        receiver_node = choice(list(self.nodes_config.keys()))
+        self.log.info("Asking for genesis block to %s", receiver_node)
+
+    def send_message(self, message: str, node_name: str):
+        encrypted_message = self.gpg.encrypt(message, node_name, armor=False)
         if not encrypted_message.ok:
             raise Exception("Encryption failed with status %s" % encrypted_message.status)
-        sock.sendto(str(encrypted_message).encode(), (LOCALHOST, self.nodes_config[receiver_node]))
+        self.sock.sendto(str(encrypted_message).encode(), (LOCALHOST, self.nodes_config[node_name]))
+
+
 
 
 def main():
