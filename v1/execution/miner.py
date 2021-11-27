@@ -21,6 +21,7 @@ class Miner:
 
     def mine(self):
         self._mine()
+        self.block.updateTimeStamp()
         self.block.print_block()
         return self.block
 
