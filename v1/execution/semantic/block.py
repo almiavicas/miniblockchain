@@ -1,7 +1,6 @@
-import hashlib
+from hashlib import sha256
 from time import time
 from datetime import datetime
-import random
 from collections import OrderedDict
 from .transaction import Transaction
 
@@ -47,7 +46,7 @@ class Block():
     """
     def __init__(self, previous_hash = None, index = 0, transactions: OrderedDict = None):
         self.index = index
-        self.hash = hashlib.sha256()
+        self.hash = sha256()
         self.timestamp = time()
         self.previous_hash = previous_hash
         self.nonce = 0
