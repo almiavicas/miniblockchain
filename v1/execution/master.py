@@ -8,7 +8,7 @@ import hashlib
 from gnupg import GPG
 from semantic.mempool import Mempool
 from semantic.chain import Chain
-from semantic.transaction import Transaction
+from semantic.transaction import Transaction, create_tx_from_json
 from semantic.block import Block
 from miner import Miner
 from neighbor import Neighbor, create_neighbors
@@ -16,7 +16,7 @@ from utils import (
     create_dir,
     parse_network_file,
     get_gpg,
-    get_nodes_fingerprints,
+    get_fingerprints,
     parse_config_file,
     Event,
     LOCALHOST,
@@ -37,9 +37,9 @@ class Master:
         log_file: str,
         gpg: GPG,
         port: int,
-        tamaniomaxbloque: int = 512,
-        tiempopromediocreacionbloque: int = 1,
-        dificultadinicial: int = 1000,
+        block_max_size: int = 512,
+        mean_block_creation_time: int = 1,
+        initial_difficulty: int = 1000,
     ):
         self.name = name
         self.mempool = Mempool()
@@ -47,9 +47,9 @@ class Master:
         self.neighbors = neighbors
         self.gpg = gpg
         self.port = port
-        self.tamaniomaxbloque = tamaniomaxbloque
-        self.tiempopromediocreacionbloque = tiempopromediocreacionbloque
-        self.dificultadinicial = dificultadinicial
+        self.block_max_size = block_max_size
+        self.mean_block_creation_time = mean_block_creation_time
+        self.initial_difficulty = initial_difficulty
         self.miner = None
         # The basic config goes for a default StreamHandler to the console
         basicConfig(level=INFO, format=self.LOG_FORMAT)
@@ -99,7 +99,6 @@ class Master:
         origin = Block()
         miner = Miner(000, origin, difficulty, origin)
         block_mined = miner.mine()
-        print(block_mined)
         self.chain.insert_block(block_mined)
 
         difficulty = 15
@@ -124,9 +123,9 @@ class Master:
         n.is_active = True
         self.log.info("%s received from %s", Event.PRESENTATION_ACK, str(n))
 
-    def event_new_transaction(data: dict):
-        signature, pub_key = data["signature"], data["pub_key"]
-        tx = self.decrypt_transaction(signature, pub_key)
+    def event_new_transaction(self, data: dict):
+        signature, fingerprint = data["signature"], data["fingerprint"]
+        tx = self.decrypt_transaction(signature, fingerprint)
         self.validate_transaction(tx)
         pass
 
@@ -145,8 +144,11 @@ class Master:
     def event_block_ack(neighbor_name: str):
         pass
 
-    def decrypt_transaction(signature: str, pub_key: str) -> Transaction:
-        pass
+    def decrypt_transaction(self, signature: str, fingerprint: str) -> Transaction:
+        verified = self.gpg.verify(signature)
+        self.log.info("Message signed by fringerprint %s", verified.fingerprint)
+        decrypted_message = self.gpg.decrypt(signature)
+        self.log.info("Received %s", str(decrypted_message))
 
     def validate_transaction(tx: Transaction):
         """
@@ -220,11 +222,20 @@ def main():
     # print(config)
     log_file = f"{args.logs_dir}/{args.name}.log"
     gpg: GPG = get_gpg()
-    nodes_fingerprints = get_nodes_fingerprints(gpg)
+    nodes_fingerprints = get_fingerprints(gpg, "nodo")
     neighbors_info = network["neighbors_info"][args.name]
     neighbors = create_neighbors(network["ports_info"], neighbors_info, nodes_fingerprints)
     node_port = network["ports_info"][args.name]
-    node = Master(args.name, neighbors, log_file, gpg, node_port, **config)
+    node = Master(
+        args.name,
+        neighbors,
+        log_file,
+        gpg,
+        node_port,
+        config["tamaniomaxbloque"],
+        config["tiempopromediocreacionbloque"],
+        config["dificultadinicial"],
+    )
     node.create_miner()
     node.listen()
     

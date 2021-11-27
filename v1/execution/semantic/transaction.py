@@ -1,5 +1,4 @@
 from typing import List, Optional
-from datetime import datetime
 from hashlib import sha256
 from .unit_value import UnitValue
 
@@ -11,7 +10,7 @@ class Transaction:
         self,
         _input: List[UnitValue],
         output: List[UnitValue],
-        timestamp: datetime,
+        timestamp: int,
         block_hash: str,
         status: Optional[str] = "MEMPOOL",
     ):
@@ -21,6 +20,16 @@ class Transaction:
         self.block_hash = block_hash
         assert status in self.VALID_STATUS
         self.status = status
+
+
+def create_tx_from_json(data: dict) -> Transaction:
+    return Transaction(
+        _input=list(map(lambda unit_value: UnitValue(**unit_value), data["input"])),
+        output=list(map(lambda unit_value: UnitValue(**unit_value), data["output"])),
+        timestamp=data["timestamp"],
+        block_hash=data["block_hash"],
+        status=data.get("status", None),
+    )    
 
 
 

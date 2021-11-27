@@ -16,11 +16,11 @@ class Miner:
 
     def mine(self):
         self.block.mine(self.difficulty)
-        self.block.print_block()
+        # self.block.print_block()
         self.send_block()
         return self.block
 
 
     def send_block(self):
-        print('send block!')
+        # print('send block!')
         pass

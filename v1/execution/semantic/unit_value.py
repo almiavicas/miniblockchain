@@ -1,5 +1,3 @@
-from datetime import datetime
-
 class UnitValue:
     """
     Unit values are objects that hold value for users (or addresses).
@@ -14,7 +12,7 @@ class UnitValue:
         The value that this unitValue has for a user.
     pub_key : str
         The public key of the owner of the UnitValue.
-    timestamp : datetime.datetime
+    timestamp : int
         The date when this UnitValue was generated.
     """
     def __init__(
@@ -23,7 +21,7 @@ class UnitValue:
         block_hash: str,
         amount: float,
         pub_key_hash: str,
-        timestamp: datetime,
+        timestamp: int,
     ):
         self.tx_hash = tx_hash
         self.block_hash = block_hash
@@ -31,5 +29,3 @@ class UnitValue:
         self.pub_key_hash = pub_key_hash
         self.timestamp = timestamp
         self.spent = False
-    
-    

@@ -27,3 +27,9 @@ To run every node in the example config files, run the following instead
 ./nodo -n nodo3 -d logs/ -f example_network.txt -c example_config.txt && \
 ./nodo -n nodo4 -d logs/ -f example_network.txt -c example_config.txt
 ```
+
+## Transactions generator
+We have a transactions generator that you can use and configure to send dummy transactions to the network in a specified frequency. Use the following command to start the transactions generator:
+```bash
+./genTransac -f genTransac.config.txt -n genTransac.nodo.txt -d logs/
+```

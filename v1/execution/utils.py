@@ -1,5 +1,6 @@
 import os
 from typing import List, Dict, Any
+from collections import namedtuple
 from enum import Enum
 from gnupg import GPG
 
@@ -48,8 +49,8 @@ def parse_network_file(filename: str) -> Dict[str, Any]:
 def parse_config_file(filename: str) -> dict:
     config = {}
     with open(filename, encoding="utf-8") as _file:
-        for i in range(3):
-            key, value = _file.readline().split()
+        for line in _file.readlines():
+            key, value = line.split()
             config[key[:-1].lower()] = int(value)
     return config
 
@@ -60,11 +61,17 @@ def get_gpg() -> GPG:
     gnupghome = f"{homedir}/.gnupg"
     return GPG(gnupghome=gnupghome)
 
-def get_nodes_fingerprints(gpg: GPG) -> Dict[str, str]:
+def get_fingerprints(gpg: GPG, prefix=None) -> Dict[str, str]:
+    """Get a dict of fingerprints from gnupg linked to one of their uids"""
     keys = gpg.list_keys()
-    nodes_fingerprints = {}
+    fingerprints = {}
     for key in keys:
         for uid in key["uids"]:
-            if uid.startswith("nodo"):
-                nodes_fingerprints[uid] = key["fingerprint"]
-    return nodes_fingerprints
+            if prefix is not None:
+                if uid.startswith(prefix):
+                    fingerprints[uid] = key["fingerprint"]
+                    break
+            else:
+                fingerprints[uid] = key["fingerprint"]
+                break
+    return fingerprints
