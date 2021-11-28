@@ -18,7 +18,7 @@ class Miner:
 
 
     def start(self):
-        self.block.merkle_tree_root = self.find_merkle_tree_root()
+        self.block.merkle_tree_root = self.block.find_merkle_tree_root()
         block = self.mine()
         # After mining, set timestamp for block, txs and utxos.
         # Also set block_hash to every txs and utxos.
@@ -45,11 +45,6 @@ class Miner:
     def block_hash(self, block: Block) -> str:
         block_str = f"{block.merkle_tree_root}{block.parent_hash}{block.nonce}"
         return sha256(block_str.encode("utf-8")).hexdigest()
-
-
-    def find_merkle_tree_root(self) -> str:
-        # TODO: Construir el merkle tree.
-        pass
 
 
     def send_message(self, data: str):
