@@ -17,7 +17,9 @@ class Chain():
         return deepcopy(self.blockchain.get(_hash, None))
 
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
-        pass
+        for block in self.blockchain.values():
+            if tx_hash in block.transactions.keys():
+                return deepcopy(block.transactions[tx_hash])
 
     def insert_block(self, block: Block):
         self.blockchain[block._hash] = block
@@ -26,7 +28,7 @@ class Chain():
 
     def last_block(self) -> Block:
         blocks = list(self.blockchain.values())
-        return blocks[-1]
+        return deepcopy(blocks[-1])
 
     def __len__(self):
         return len(list(self.blockchain.items()))

@@ -36,7 +36,13 @@ class UnitValue:
 
     def __eq__(self, o):
         # TODO: Define what equality means between two UnitValues
-        return True
+        return (
+            self.tx_hash == o.tx_hash and
+            self.amount == o.amount and
+            self.fingerprint_hash == o.fingerprint_hash and
+            self.timestamp == o.timestamp and
+            self.block_hash == o.block_hash
+        )
 
 
     def to_dict(self):

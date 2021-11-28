@@ -38,6 +38,12 @@ class Transaction:
         self._status = value
 
 
+    def find_input_utxo(self, utxo_fingerprint_hash: str) -> UnitValue:
+        for uxto in self._input:
+            if utxo.fingerprint_hash == utxo_fingerprint_hash:
+                return utxo
+
+
     def __eq__(self, o):
         # TODO: Define what equality means between two transactions
         return True

@@ -182,12 +182,28 @@ class Master:
 
     def event_new_transaction(self, data: dict, address: tuple, sock: socket):
         self.log.info("%s received from %s", Event.NEW_TRANSACTION, address)
-        self.log.info(data)
         signature = data["signature"]
         fingerprint = data["fingerprint"]
-        tx = self.decrypt_transaction(signature, fingerprint)
-        self.validate_transaction(tx)
-        pass
+        try:
+            tx = self.validate_transaction(tx, fingerprint)
+            response = dumps({
+                "event": Event.NEW_TRANSACTION_ACK.value,
+                "data": {
+                    "status": "Si",
+                    "transaction": tx.to_dict()
+                }
+            })
+        except Exception as e:
+            response = dumps({
+                "event": Event.NEW_TRANSACTION_ACK.value,
+                "data": {
+                    "status": "No",
+                    "message": str(e),
+                }
+            })
+        finally:
+            sock.sendto(response.encode(), address)
+
 
 
     def event_new_transaction_ack(self, data: dict):
@@ -228,26 +244,6 @@ class Master:
         pass
 
 
-    # def event_block(self, block, neighbor_name: str, sock: socket):
-        # TODO: Validaciones del bloque (POW) antes de propagar
-        # TODO: Destruir el minador si el bloque es aceptado
-        # TODO: Construir el nuevo minador
-        # for n in self.neighbors.values():
-        #     self.log.info("Propagate candidate block to %s", str(n))
-        #     data = dumps({
-        #         "block": block.parser_json(),
-        #         "name": self.name
-        #     })
-        #     print(data[0])
-        #     n.send_message(sock, Event.BLOCK.value, data, self.gpg)
-        # if neighbor_name:
-        #     n = self.neighbors[neighbor_name]
-        #     self.log.info("%s received from %s", Event.BLOCK, str(n))
-        #     data = {"name": self.name}
-        #     n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
-
-
-
     def event_block_explore(self, data: dict, address: tuple, sock: socket):
         self.log.info("%s received from %s", Event.BLOCK_EXPLORE, address)
         height = data.get("height", None)
@@ -258,9 +254,11 @@ class Master:
         elif isinstance(block_hash, str):
             block = self.chain.find_block_by_hash(block_hash)
         response = {
-            "block": block.to_dict()
+            "event": Event.BLOCK_EXPLORE_ACK.value,
+            "data": {
+                "block": block.to_dict(),
+            },
         }
-        self.log.info(response)
         sock.sendto(dumps(response).replace("\\", "").encode(), address)
 
 
@@ -276,23 +274,42 @@ class Master:
         verified = self.gpg.verify(signature)
         self.log.info("Message signed by fringerprint %s", verified.fingerprint)
         decrypted_message = self.gpg.decrypt(signature)
-        self.log.info("Received %s", str(decrypted_message))
         tx_json = json.loads(str(decrypted_message))
         return create_tx_from_json(tx_json)
 
 
-    def validate_transaction(tx: Transaction):
+    def validate_transaction(self, signature: str, fingerprint: str) -> Transaction:
         """
-        Run the P2SH algorithm to check for transaction validity.
+        Run the transaction validations.
         Parameters:
         -----------
-        tx : Transaction
-            The transaction with the list of input and outputs to
-            validate.
+        signature: str
+            The transaction signed with the given fingerprint
+        fingerprint : str
+            The fingerprint to compare with. It will serve as the pub_key_hash
+            in the p2sh script.
         """
-        pass
+        tx = self.decrypt_transaction(signature, fingerprint)
+        input_utxo = tx._input
+        # Assert that every input_utxo is in the blockchain
+        for utxo in input_utxo:
+            utxo_tx = self.chain.find_tx_by_hash(utxo.tx_hash)
+            assert utxo_tx.find_input_utxo(utxo.fingerprint_hash) == utxo
+        # Assert that every input_utxo is unspent
+        assert all(lambda utxo: not utxo.spent, input_utxo)
+        # Assert that every input_utxo is from the same sender
+        sender_fingerprint = input_utxo[0].fingerprint_hash
+        assert all(lambda utxo: utxo.fingerprint_hash == sender_fingerprint, input_utxo)
+        # Run the p2sh script
+        self.Script(
+            signature,
+            sha256(fingerprint.encode()).hexdigest(),
+            sender_fingerprint,
+            self.gpg,
+        ).execute()
+        return tx
 
-
+    
     class Script:
         "P2SH script"
         def __init__(self, sig: str, pub_key: str, pub_key_hash, gpg: GPG):

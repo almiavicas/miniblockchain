@@ -19,6 +19,7 @@ Event = Enum(
         "BLOCK",
         "BLOCK_ACK",
         "BLOCK_EXPLORE",
+        "BLOCK_EXPLORE_ACK",
         "TRANSACTION_EXPLORE",
         "LOG_DIR",
     )

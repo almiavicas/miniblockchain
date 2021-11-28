@@ -51,10 +51,9 @@ class TransactionGenerator:
         self.init_wallets()
         while True:
             sender = choice(list(self.fingerprints.keys()))
-            self.log.info("Creating transaction from %s", sender)
             tx = self.generate_transaction(sender)
             receiver_node = choice(list(self.nodes_config.keys()))
-            self.log.info("Sending Transaction to %s", receiver_node)
+            self.log.info("Sending transaction from %s to %s", sender, receiver_node)
             fingerprint = self.fingerprints[sender]
             self.log.info("Signing with fingerprint: %s", fingerprint)
             signed_data = self.gpg.sign(str(tx), keyid=fingerprint)
@@ -63,8 +62,20 @@ class TransactionGenerator:
                 "signature": str(signed_data),
             }
             self.send_message(request_body, Event.NEW_TRANSACTION.value, receiver_node)
+            response = self.sock.recv(BUFSIZE)
+            response_json = loads(response.decode())
+            self.log_event(response_json["event"], receiver_node)
             self.log.info("Sleeping for %d seconds", 60 // self.frequency)
             sleep(60 // self.frequency)
+
+
+    def log_event(self, event: int, sender: str):
+        received_event = None
+        if event == Event.NEW_TRANSACTION_ACK.value:
+            received_event = Event.NEW_TRANSACTION_ACK
+        elif event == Event.BLOCK_EXPLORE_ACK.value:
+            received_event = Event.BLOCK_EXPLORE_ACK
+        self.log.info("%s received from %s", received_event, sender)
 
 
     def init_wallets(self):
@@ -82,7 +93,9 @@ class TransactionGenerator:
         self.send_message(data, Event.BLOCK_EXPLORE.value, receiver_node)
         response = self.sock.recv(BUFSIZE)
         response_json = loads(response.decode())
-        block_json = response_json["block"]
+        self.log_event(response_json["event"], receiver_node)
+        data = response_json["data"]
+        block_json = data["block"]
         block = create_block_from_json(block_json)
         utxos = []
         for tx in block.transactions.values():
