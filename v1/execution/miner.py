@@ -19,8 +19,8 @@ class Miner:
 
 
     def start(self):
+        self.block.merkle_tree_root = self.find_merkle_tree_root()
         block = self.mine()
-        block.merkle_tree_root = self.find_merkle_tree_root()
         # After mining, set timestamp for block, txs and utxos.
         # Also set block_hash to every txs and utxos.
         mining_timestamp = time()
