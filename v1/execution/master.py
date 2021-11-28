@@ -79,6 +79,7 @@ class Master:
             message, addr = sock.recvfrom(BUFSIZE)
             self.handle_message(message, addr, sock)
 
+
     def create_origin_block(self):
         nodes_fingerprints = get_fingerprints(self.gpg, prefix="nodo")
         identities_fingerprints = get_fingerprints(self.gpg, prefix="identidad")
@@ -98,8 +99,8 @@ class Master:
         transaction = Transaction([], utxos, 0, empty_string_hash)
         transactions = OrderedDict({ transaction._hash: transaction })
         block = Block("0x00", transactions, 0, 0, empty_string_hash)
-        self.log.info("Adding origin block: %s", block)
         self.chain.insert_block(block)
+        self.log.info("Added origin block: %s", block)
 
 
     def handle_message(self, message: bytes, address: tuple, sock: socket):
@@ -123,7 +124,7 @@ class Master:
 
     def present(self, sock: socket):
         for n in self.neighbors.values():
-            self.log.info("Sending Presentation to %s", str(n))
+            self.log.info("Sending %s to %s", Event.PRESENTATION, str(n))
             data = {"name": self.name}
             n.send_message(sock, Event.PRESENTATION.value, data, self.gpg)
 
@@ -135,6 +136,13 @@ class Master:
         block = Block(parent_hash, transactions, len(self.chain), difficulty)
         miner = Miner(self.name, self.port, block, parent_hash, self.gpg)
         return Thread(target=miner.start)
+
+
+    def destroy_miner(self):
+        if self.miner.is_alive():
+            self.miner._stop()
+            self.miner.join()
+        self.miner = None
 
 
     def pick_transactions(self) -> OrderedDict:
@@ -152,21 +160,6 @@ class Master:
     def calculate_difficulty(self) -> int:
         # TODO: Calculate actual difficulty based on previous blocks
         return self.initial_difficulty
-
-
-    def propagate_candidate_block(self, block, sock: socket):
-        for n in self.neighbors.values():
-            self.log.info("Propagate candidate block to %s", str(n))
-            data = dumps({
-                "block": block.parser_json(),
-                "name": self.name
-            })
-            print(data[0])
-            n.send_message(sock, Event.BLOCK.value, data, self.gpg)
-
-
-    def destroy_miner(self):
-        pass
 
 
     def event_presentation(self, data: dict, sock: socket):
@@ -204,6 +197,23 @@ class Master:
 
     def event_block(self, data: dict, address: tuple, sock: socket):
         self.log.info("%s received from %s", Event.BLOCK, address)
+        pass
+        block_json = json.loads(data["block"])
+        nodes_knowing = data["propagated_nodes"]
+        nodes_knowing.append(self.name)
+        self.log.info("Nodes knowing: %s", nodes_knowing)
+        host, sender_port = address
+        propagate_data = {
+            "block": block_str,
+            "propagated_nodes": nodes_knowing,
+        }
+        for n in self.neighbors.values():
+            if n.is_active and n.name not in nodes_knowing:
+                n.send_message(sock, Event.BLOCK.value, propagate_data, self.gpg)
+            if n.port == sender_port:
+                n.is_active = True
+                ack_data = {"accepted": "yes"}
+                n.send_message(sock, Event.BLOCK_ACK.value, ack_data, self.gpg)
 
 
     def event_block_ack(self, data: dict):
@@ -229,12 +239,8 @@ class Master:
         #     n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
 
 
-    def event_block_ack(self, data: dict):
-        n = self.neighbors[data["name"]]
-        self.log.info("%s received from %s", Event.BLOCK_ACK, str(n))
 
-
-    def event_block_explore(self, data: dict, addres: tuple, sock: socket):
+    def event_block_explore(self, data: dict, address: tuple, sock: socket):
         pass
 
 

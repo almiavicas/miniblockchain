@@ -30,7 +30,11 @@ class Miner:
             for utxo in tx.outputs:
                 utxo.block_hash = block._hash
                 utxo.timestamp = mining_timestamp
-        self.send_message(str(block))
+        data = {
+            "block": str(block),
+            "propagated_nodes": [],
+        }
+        self.send_message(data)
 
 
     def mine(self) -> Block:
