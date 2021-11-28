@@ -65,6 +65,8 @@ class TransactionGenerator:
             response = self.sock.recv(BUFSIZE)
             response_json = loads(response.decode())
             self.log_event(response_json["event"], receiver_node)
+            status = response_json["data"]["status"]
+            self.log.info("Transaction accepted: %s", status)
             self.log.info("Sleeping for %d seconds", 60 // self.frequency)
             sleep(60 // self.frequency)
 

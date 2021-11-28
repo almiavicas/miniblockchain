@@ -39,7 +39,13 @@ class Transaction:
 
 
     def find_input_utxo(self, utxo_fingerprint_hash: str) -> UnitValue:
-        for uxto in self._input:
+        for utxo in self._input:
+            if utxo.fingerprint_hash == utxo_fingerprint_hash:
+                return utxo
+
+
+    def find_output_utxo(self, utxo_fingerprint_hash: str) -> UnitValue:
+        for utxo in self.output:
             if utxo.fingerprint_hash == utxo_fingerprint_hash:
                 return utxo
 

@@ -185,7 +185,7 @@ class Master:
         signature = data["signature"]
         fingerprint = data["fingerprint"]
         try:
-            tx = self.validate_transaction(tx, fingerprint)
+            tx = self.validate_transaction(signature, fingerprint)
             response = dumps({
                 "event": Event.NEW_TRANSACTION_ACK.value,
                 "data": {
@@ -194,6 +194,8 @@ class Master:
                 }
             })
         except Exception as e:
+            raise e
+            self.log.warning("Declined transaction: %s", str(e))
             response = dumps({
                 "event": Event.NEW_TRANSACTION_ACK.value,
                 "data": {
@@ -272,7 +274,7 @@ class Master:
 
     def decrypt_transaction(self, signature: str, fingerprint: str) -> Transaction:
         verified = self.gpg.verify(signature)
-        self.log.info("Message signed by fringerprint %s", verified.fingerprint)
+        self.log.info("Message signed by fingerprint %s", verified.fingerprint)
         decrypted_message = self.gpg.decrypt(signature)
         tx_json = json.loads(str(decrypted_message))
         return create_tx_from_json(tx_json)
@@ -294,17 +296,17 @@ class Master:
         # Assert that every input_utxo is in the blockchain
         for utxo in input_utxo:
             utxo_tx = self.chain.find_tx_by_hash(utxo.tx_hash)
-            assert utxo_tx.find_input_utxo(utxo.fingerprint_hash) == utxo
+            assert utxo_tx.find_output_utxo(utxo.fingerprint_hash) == utxo
         # Assert that every input_utxo is unspent
-        assert all(lambda utxo: not utxo.spent, input_utxo)
+        assert all(not utxo.spent for utxo in input_utxo)
         # Assert that every input_utxo is from the same sender
-        sender_fingerprint = input_utxo[0].fingerprint_hash
-        assert all(lambda utxo: utxo.fingerprint_hash == sender_fingerprint, input_utxo)
+        fingerprint_hash = input_utxo[0].fingerprint_hash
+        assert all(utxo.fingerprint_hash == fingerprint_hash for utxo in input_utxo)
         # Run the p2sh script
         self.Script(
             signature,
-            sha256(fingerprint.encode()).hexdigest(),
-            sender_fingerprint,
+            fingerprint,
+            fingerprint_hash,
             self.gpg,
         ).execute()
         return tx
@@ -314,13 +316,13 @@ class Master:
         "P2SH script"
         def __init__(self, sig: str, pub_key: str, pub_key_hash, gpg: GPG):
             self.script = [
-                sig,
-                pub_key,
-                "op_dup",
-                "op_hash256",
-                pub_key_hash,
-                "op_equalverify",
                 "op_checksig",
+                "op_equalverify",
+                pub_key_hash,
+                "op_hash256",
+                "op_dup",
+                pub_key,
+                sig,
             ]
             self.gpg = gpg
 
@@ -332,7 +334,7 @@ class Master:
                 "op_equalverify": self.op_equalverify,
                 "op_checksig": self.op_checksig
             }
-            while len(self.script > 0):
+            while len(self.script) > 0:
                 element = self.script.pop()
                 if element in commands.keys():
                     commands[element](stack)
@@ -342,10 +344,10 @@ class Master:
             return stack
 
         def op_dup(self, stack: List[str]):
-            stack.append(self.stack[-1])
+            stack.append(stack[-1])
 
         def op_hash256(self, stack: List[str]):
-            stack.append(sha256(stack.pop().encode()).digest().hex())
+            stack.append(sha256(stack.pop().encode()).hexdigest())
 
         def op_equalverify(self, stack: List[str]):
             pub_key_hash = stack.pop()
@@ -353,7 +355,10 @@ class Master:
             assert pub_key_hash == pub_hash_a
 
         def op_checksig(self, stack: List[str]):
-            pass
+            fingerprint = stack.pop()
+            signature = stack.pop()
+            verified = self.gpg.verify(signature)
+            stack.append(verified.fingerprint == fingerprint)
 
 
 def main():
