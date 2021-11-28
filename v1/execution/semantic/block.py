@@ -1,5 +1,6 @@
+from sys import getsizeof
 from hashlib import sha256
-from time import time
+from typing import Optional
 from json import dumps
 from datetime import datetime
 from collections import OrderedDict
@@ -45,31 +46,26 @@ class Block():
         The merkle_tree_root of the transactions tree. It should only be
         given when the block is propagated from another node.
     """
-    def __init__(self, previous_hash = None, index = 0, transactions: OrderedDict = None):
-        self.index = index
-        self.hash = sha256()
-        self.timestamp = time()
-        self.previous_hash = previous_hash
-        self.nonce = 0
-        self.difficulty = 0
+    def __init__(
+        self, 
+        parent_hash: str,
+        transactions: OrderedDict,
+        index: int,
+        difficulty: int,
+        _hash: Optional[str] = None,
+        nonce: Optional[str] = None,
+        timestamp: Optional[float] = None,
+        merkle_tree_root: Optional[str] = None,
+    ):
+        self.parent_hash = parent_hash
         self.transactions = transactions
-        self.merkle_tree_root = None
-
-    def set_nonce(self, nonce):
-        self.nonce = nonce
-
-    def set_hash(self, hash):
-        self.hash = hash
-        self.update_hash()
-
-    def update_hash(self):
-        self.hash.update(str(self).encode('utf-8'))
-
-    def set_difficulty(self, difficulty):
+        self.index = index
         self.difficulty = difficulty
+        self._hash = _hash
+        self.nonce = nonce
+        self.timestamp = timestamp
+        self.merkle_tree_root = merkle_tree_root
 
-    def updateTimeStamp(self):
-        self.timestamp = time()
 
     def find_merkle_tree_root(self) -> str:
         """
@@ -77,38 +73,33 @@ class Block():
         """
         pass
 
+
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
         pass
 
-    def print_block(self):
-        print("\n\n==================")
-        if(self.previous_hash):
-            print("Previous Hash:\t", self.previous_hash)
-        print("Hash:\t\t", self.hash.hexdigest())
-        print("Index:\t\t", self.index)
-        print("Nonce:\t\t", self.nonce)
-        print("Transactions:\t", self.transactions)
-        print("Difficulty:", self.difficulty)
-        print("Timestamp:", self.get_timestamp_formatted())
-        print("\n\n==================")
-
-    def set_index(self, previous_index):
-        self.index = previous_index + 1
-
-    def get_timestamp_formatted(self):
-        return datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S')
-        
-    def parser_json(self):
-        return dumps({
-            "index": self.index,
-            "hash": self.hash.hexdigest(),
-            "timestamp": self.get_timestamp_formatted(),
-            "previous_hash": self.previous_hash,
-            "nonce":self.nonce,
-            "difficulty": self.difficulty,
-            "transactions": 'self.transactions',
-            "merkle_tree_roo": self.merkle_tree_root,
-        })
 
     def __str__(self):
-        return "{}{}{}".format(self.previous_hash if self.previous_hash else self.previous_hash, self.transactions, self.nonce)
+        return dumps({
+            "index": self.index,
+            "hash": self._hash,
+            "timestamp": self.timestamp,
+            "parent_hash": self.parent_hash,
+            "nonce":self.nonce,
+            "difficulty": self.difficulty,
+            "transactions": dumps([str(tx) for tx in self.transactions.values()]),
+            "merkle_tree_root": self.merkle_tree_root,
+        }).replace("\\", "")
+
+
+EMPTY_BLOCK_SIZE = getsizeof(
+    Block(
+        sha256().hexdigest(),
+        {},
+        0,
+        0,
+        sha256().hexdigest(),
+        0,
+        0.0,
+        sha256().hexdigest()
+    )
+)

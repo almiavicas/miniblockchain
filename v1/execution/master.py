@@ -1,17 +1,21 @@
+from sys import getsizeof
 from typing import List, Dict
+from copy import deepcopy
 import json
+from collections import OrderedDict
 from socket import socket, errno, SOCK_DGRAM, AF_INET
 from argparse import ArgumentParser
 from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
 from threading import Thread
-import hashlib
-from time import sleep
+from hashlib import sha256
+from time import sleep, time
 from json import dumps
 from gnupg import GPG
 from semantic.mempool import Mempool
 from semantic.chain import Chain
 from semantic.transaction import Transaction, create_tx_from_json
-from semantic.block import Block
+from semantic.unit_value import UnitValue
+from semantic.block import Block, EMPTY_BLOCK_SIZE
 from miner import Miner
 from neighbor import Neighbor, create_neighbors
 from utils import (
@@ -69,14 +73,36 @@ class Master:
         sock.bind((LOCALHOST, self.port))
         self.log.info("Listening on port %d", self.port)
         self.present(sock)
-        self.miner = Thread(target=self.create_miner, args=(sock,))
+        self.miner = self.create_miner()
         self.miner.start()
         while True:
             message, addr = sock.recvfrom(BUFSIZE)
             self.handle_message(message, addr, sock)
 
     def create_origin_block(self):
-        self.chain.insert_block(Block())
+        # TODO: Search all identities and create a dummy transaction for each one.
+        # Each identity should start with 10.000.000 Satoshis
+        nodes_fingerprints = get_fingerprints(self.gpg, prefix="nodo")
+        identities_fingerprints = get_fingerprints(self.gpg, prefix="identidad")
+        identities = { **nodes_fingerprints, **identities_fingerprints }
+        empty_string_hash = sha256().hexdigest()
+        utxos = []
+        for fingerprint in identities.values():
+            public_key_hash = sha256(fingerprint.encode("utf-8")).hexdigest()
+            unit_value = UnitValue(
+                empty_string_hash,
+                10000000,
+                public_key_hash,
+                0,
+                empty_string_hash,
+            )
+            utxos.append(unit_value)
+        transaction = Transaction([], utxos, 0, empty_string_hash)
+        transactions = OrderedDict({ transaction._hash: transaction })
+        block = Block("0x00", transactions, 0, 0, empty_string_hash)
+        self.log.info("Adding origin block: %s", block)
+        self.chain.insert_block(block)
+
 
     def handle_message(self, message: bytes, address: tuple, sock: socket):
         decrypted_message = self.gpg.decrypt(message.decode())
@@ -105,18 +131,30 @@ class Master:
             n.send_message(sock, Event.PRESENTATION.value, data, self.gpg)
 
 
-    def create_miner(self, sock: socket) -> Thread:
-        while True:
-            difficulty = 15
-            last_block = self.chain.last_block()
-            if last_block[0]:
-                miner = Miner(self.port, Block(last_block[0], self.chain.length()), difficulty, last_block[0])
-                block_mined = miner.mine()
-                last_block = self.chain.last_block()
-                if miner.proof_of_work(last_block[0]):
-                    self.propagate_candidate_block(block_mined, sock)
-                    self.chain.insert_block(block_mined)
-            sleep(5)
+    def create_miner(self) -> Thread:
+        difficulty = self.calculate_difficulty()
+        parent_hash = self.chain.last_block()._hash
+        transactions = self.pick_transactions()
+        block = Block(parent_hash, transactions, len(self.chain), difficulty)
+        miner = Miner(self.name, self.port, block, parent_hash, self.gpg)
+        return Thread(target=miner.start)
+
+
+    def pick_transactions(self) -> OrderedDict:
+        """Pick transactions from mempool for a block"""
+        picked_txs = {}
+        for tx in self.mempool.transactions:
+            od_size = getsizeof(picked_txs)
+            tx_size = getsizeof(tx)
+            if EMPTY_BLOCK_SIZE + od_size + tx_size > self.block_max_size:
+                break
+            picked_txs[tx._hash] = tx
+        return picked_txs
+
+    def calculate_difficulty(self) -> int:
+        # TODO: Calculate actual difficulty based on previous blocks
+        return self.initial_difficulty
+
 
     def propagate_candidate_block(self, block, sock: socket):
         for n in self.neighbors.values():
@@ -127,6 +165,7 @@ class Master:
             })
             print(data[0])
             n.send_message(sock, Event.BLOCK.value, data, self.gpg)
+
 
     def destroy_miner(self):
         pass
@@ -174,10 +213,22 @@ class Master:
 
 
     def event_block(self, block, neighbor_name: str, sock: socket):
-        n = self.neighbors[neighbor_name]
-        self.log.info("%s received from %s", Event.BLOCK, str(n))
-        data = {"name": self.name}
-        n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
+        # TODO: Validaciones del bloque (POW) antes de propagar
+        # TODO: Destruir el minador si el bloque es aceptado
+        # TODO: Construir el nuevo minador
+        for n in self.neighbors.values():
+            self.log.info("Propagate candidate block to %s", str(n))
+            data = dumps({
+                "block": block.parser_json(),
+                "name": self.name
+            })
+            print(data[0])
+            n.send_message(sock, Event.BLOCK.value, data, self.gpg)
+        if neighbor_name:
+            n = self.neighbors[neighbor_name]
+            self.log.info("%s received from %s", Event.BLOCK, str(n))
+            data = {"name": self.name}
+            n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
 
 
     def event_block_ack(self, data: dict):
@@ -251,7 +302,7 @@ class Master:
             stack.append(self.stack[-1])
 
         def op_hash256(self, stack: List[str]):
-            stack.append(hashlib.sha256(stack.pop().encode("utf-8")).digest().hex())
+            stack.append(sha256(stack.pop().encode("utf-8")).digest().hex())
 
         def op_equalverify(self, stack: List[str]):
             pub_key_hash = stack.pop()
