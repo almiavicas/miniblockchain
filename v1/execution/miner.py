@@ -53,7 +53,7 @@ class Miner:
             "data": data,
         })
         sock = socket(AF_INET, SOCK_DGRAM)
-        encrypted_message = gpg.encrypt(message, self.master_name, armor=False)
+        encrypted_message = self.gpg.encrypt(message, self.master_name, armor=False)
         if not encrypted_message.ok:
             raise Exception("Encryption failed with status %s" % encrypted_message.status)
         address = (LOCALHOST, self.master_port)

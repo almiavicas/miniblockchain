@@ -116,8 +116,7 @@ class Master:
         elif event == Event.NEW_TRANSACTION.value:
             self.event_new_transaction(data, address, sock)
         elif event == Event.BLOCK.value:
-            data = json.loads(str(data))
-            self.event_block(json.loads(str(data["block"])), data["name"], sock)
+            self.event_block(data, address, sock)
         elif event == Event.BLOCK_ACK.value:
             self.event_block_ack(data)
 
@@ -148,6 +147,7 @@ class Master:
                 break
             picked_txs[tx._hash] = tx
         return picked_txs
+
 
     def calculate_difficulty(self) -> int:
         # TODO: Calculate actual difficulty based on previous blocks
@@ -202,31 +202,31 @@ class Master:
         pass
 
 
-    def event_block(self, data: dict, sock: socket):
-        pass
+    def event_block(self, data: dict, address: tuple, sock: socket):
+        self.log.info("%s received from %s", Event.BLOCK, address)
 
 
     def event_block_ack(self, data: dict):
         pass
 
 
-    def event_block(self, block, neighbor_name: str, sock: socket):
+    # def event_block(self, block, neighbor_name: str, sock: socket):
         # TODO: Validaciones del bloque (POW) antes de propagar
         # TODO: Destruir el minador si el bloque es aceptado
         # TODO: Construir el nuevo minador
-        for n in self.neighbors.values():
-            self.log.info("Propagate candidate block to %s", str(n))
-            data = dumps({
-                "block": block.parser_json(),
-                "name": self.name
-            })
-            print(data[0])
-            n.send_message(sock, Event.BLOCK.value, data, self.gpg)
-        if neighbor_name:
-            n = self.neighbors[neighbor_name]
-            self.log.info("%s received from %s", Event.BLOCK, str(n))
-            data = {"name": self.name}
-            n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
+        # for n in self.neighbors.values():
+        #     self.log.info("Propagate candidate block to %s", str(n))
+        #     data = dumps({
+        #         "block": block.parser_json(),
+        #         "name": self.name
+        #     })
+        #     print(data[0])
+        #     n.send_message(sock, Event.BLOCK.value, data, self.gpg)
+        # if neighbor_name:
+        #     n = self.neighbors[neighbor_name]
+        #     self.log.info("%s received from %s", Event.BLOCK, str(n))
+        #     data = {"name": self.name}
+        #     n.send_message(sock, Event.BLOCK_ACK.value, data, self.gpg)
 
 
     def event_block_ack(self, data: dict):
