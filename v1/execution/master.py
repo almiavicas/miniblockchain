@@ -80,8 +80,6 @@ class Master:
             self.handle_message(message, addr, sock)
 
     def create_origin_block(self):
-        # TODO: Search all identities and create a dummy transaction for each one.
-        # Each identity should start with 10.000.000 Satoshis
         nodes_fingerprints = get_fingerprints(self.gpg, prefix="nodo")
         identities_fingerprints = get_fingerprints(self.gpg, prefix="identidad")
         identities = { **nodes_fingerprints, **identities_fingerprints }
