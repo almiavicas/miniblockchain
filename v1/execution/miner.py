@@ -15,7 +15,6 @@ class Miner:
         self.block = block
         self.parent_hash = parent_hash
         self.gpg = gpg
-        self.txs_str = dumps([str(tx) for tx in block.transactions.values()])
 
 
     def start(self):
