@@ -12,12 +12,13 @@ class Transaction:
         self,
         _input: List[UnitValue],
         output: List[UnitValue],
-        timestamp: float,
-        block_hash: str,
+        timestamp: Optional[float] = time(),
+        block_hash: Optional[str] = None,
+        _hash: Optional[str] = sha256(str(time()).encode()).hexdigest(),
         status: Optional[str] = "MEMPOOL",
     ):
-        self._hash = sha256(bytes(int(time()))).hexdigest()
         self._input = _input
+        self._hash = _hash
         for utxo in output:
             utxo.tx_hash = self._hash
         self.output = output
@@ -42,24 +43,30 @@ class Transaction:
         return True
 
 
-    def __str__(self):
-        return dumps({
-            "inputs": dumps([str(uv) for uv in self._input]),
-            "outputs": dumps([str(uv) for uv in self.output]),
+    def to_dict(self):
+        return {
+            "hash": self._hash,
+            "inputs": [uv.to_dict() for uv in self._input],
+            "outputs": [uv.to_dict() for uv in self.output],
             "timestamp": self.timestamp,
             "block_hash": self.block_hash,
             "status": self.status,
-        }).replace("\\", "")
+        }
+
+
+    def __str__(self):
+        return dumps(self.to_dict()).replace("\\", "")
 
 
 def create_tx_from_json(data: dict) -> Transaction:
     return Transaction(
-        _input=list(map(lambda unit_value: UnitValue(**unit_value), data["input"])),
-        output=list(map(lambda unit_value: UnitValue(**unit_value), data["output"])),
-        timestamp=data["timestamp"],
-        block_hash=data["block_hash"],
+        _input=list(map(lambda unit_value: UnitValue(**unit_value), data["inputs"])),
+        output=list(map(lambda unit_value: UnitValue(**unit_value), data["outputs"])),
+        timestamp=data.get("timestamp", None),
+        block_hash=data.get("block_hash", None),
+        _hash=data.get("hash", None),
         status=data.get("status", None),
-    )    
+    )
 
 
 

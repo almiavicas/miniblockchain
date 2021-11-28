@@ -87,16 +87,16 @@ class Master:
         empty_string_hash = sha256().hexdigest()
         utxos = []
         for fingerprint in identities.values():
-            public_key_hash = sha256(fingerprint.encode("utf-8")).hexdigest()
+            fingerprint_hash = sha256(fingerprint.encode()).hexdigest()
             unit_value = UnitValue(
-                empty_string_hash,
                 10000000,
-                public_key_hash,
+                fingerprint_hash,
                 0,
+                empty_string_hash,
                 empty_string_hash,
             )
             utxos.append(unit_value)
-        transaction = Transaction([], utxos, 0, empty_string_hash)
+        transaction = Transaction([], utxos, 0, empty_string_hash, empty_string_hash)
         transactions = OrderedDict({ transaction._hash: transaction })
         block = Block("0x00", transactions, 0, 0, empty_string_hash)
         self.chain.insert_block(block)
@@ -120,6 +120,10 @@ class Master:
             self.event_block(data, address, sock)
         elif event == Event.BLOCK_ACK.value:
             self.event_block_ack(data)
+        elif event == Event.BLOCK_EXPLORE.value:
+            self.event_block_explore(data, address, sock)
+        elif event == Event.TRANSACTION_EXPLORE.value:
+            self.event_transaction_explore(data, addres, sock)
 
 
     def present(self, sock: socket):
@@ -177,7 +181,10 @@ class Master:
 
 
     def event_new_transaction(self, data: dict, address: tuple, sock: socket):
-        signature, fingerprint = data["signature"], data["fingerprint"]
+        self.log.info("%s received from %s", Event.NEW_TRANSACTION, address)
+        self.log.info(data)
+        signature = data["signature"]
+        fingerprint = data["fingerprint"]
         tx = self.decrypt_transaction(signature, fingerprint)
         self.validate_transaction(tx)
         pass
@@ -198,7 +205,8 @@ class Master:
     def event_block(self, data: dict, address: tuple, sock: socket):
         self.log.info("%s received from %s", Event.BLOCK, address)
         pass
-        block_json = json.loads(data["block"])
+        block_str = data["block"]
+        block_json = json.loads(block_str)
         nodes_knowing = data["propagated_nodes"]
         nodes_knowing.append(self.name)
         self.log.info("Nodes knowing: %s", nodes_knowing)
@@ -241,7 +249,19 @@ class Master:
 
 
     def event_block_explore(self, data: dict, address: tuple, sock: socket):
-        pass
+        self.log.info("%s received from %s", Event.BLOCK_EXPLORE, address)
+        height = data.get("height", None)
+        block_hash = data.get("hash", None)
+        block = None
+        if isinstance(height, int):
+            block = self.chain.find_block_by_height(height)
+        elif isinstance(block_hash, str):
+            block = self.chain.find_block_by_hash(block_hash)
+        response = {
+            "block": block.to_dict()
+        }
+        self.log.info(response)
+        sock.sendto(dumps(response).replace("\\", "").encode(), address)
 
 
     def event_transaction_explore(self, data: dict, addres: tuple, sock: socket):
@@ -257,6 +277,8 @@ class Master:
         self.log.info("Message signed by fringerprint %s", verified.fingerprint)
         decrypted_message = self.gpg.decrypt(signature)
         self.log.info("Received %s", str(decrypted_message))
+        tx_json = json.loads(str(decrypted_message))
+        return create_tx_from_json(tx_json)
 
 
     def validate_transaction(tx: Transaction):
@@ -306,7 +328,7 @@ class Master:
             stack.append(self.stack[-1])
 
         def op_hash256(self, stack: List[str]):
-            stack.append(sha256(stack.pop().encode("utf-8")).digest().hex())
+            stack.append(sha256(stack.pop().encode()).digest().hex())
 
         def op_equalverify(self, stack: List[str]):
             pub_key_hash = stack.pop()

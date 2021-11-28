@@ -11,8 +11,8 @@ class UnitValue:
         The transaction in which the UnitValue was generated.
     amount : float
         The value that this unitValue has for a user.
-    pub_key : str
-        The public key of the owner of the UnitValue.
+    fingerprint_hash : str
+        The fingerprint hash of the owner of the UnitValue.
     timestamp : float
         The date when this UnitValue was generated.
     block_hash : str
@@ -20,15 +20,15 @@ class UnitValue:
     """
     def __init__(
         self,
-        tx_hash: str,
         amount: float,
-        pub_key_hash: str,
+        fingerprint_hash: str,
         timestamp: float,
+        tx_hash: Optional[str] = None,
         block_hash: Optional[str] = None,
     ):
         self.tx_hash = tx_hash
         self.amount = amount
-        self.pub_key_hash = pub_key_hash
+        self.fingerprint_hash = fingerprint_hash
         self.timestamp = timestamp
         self.block_hash = block_hash
         self.spent = False
@@ -39,11 +39,15 @@ class UnitValue:
         return True
 
 
-    def __str__(self):
-        return dumps({
+    def to_dict(self):
+        return {
             "tx_hash": self.tx_hash,
             "amount": self.amount,
-            "pub_key_hash": self.pub_key_hash,
+            "fingerprint_hash": self.fingerprint_hash,
             "timestamp": self.timestamp,
             "block_hash": self.block_hash,
-        }).replace("\\", "")
+        }
+
+
+    def __str__(self):
+        return dumps(self.to_dict()).replace("\\", "")

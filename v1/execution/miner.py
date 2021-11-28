@@ -48,7 +48,7 @@ class Miner:
 
     def block_hash(self, block: Block) -> str:
         block_str = f"{block.merkle_tree_root}{block.parent_hash}{block.nonce}"
-        return sha256(block_str.encode("utf-8")).hexdigest()
+        return sha256(block_str.encode()).hexdigest()
 
 
     def send_message(self, data: str):

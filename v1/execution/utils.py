@@ -5,7 +5,7 @@ from enum import Enum
 from gnupg import GPG
 
 LOCALHOST = "127.0.0.1"
-BUFSIZE = 4096
+BUFSIZE = 2**13
 
 Event = Enum(
     "Event",

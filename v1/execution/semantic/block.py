@@ -4,7 +4,7 @@ from typing import Optional
 from json import dumps
 from datetime import datetime
 from collections import OrderedDict
-from .transaction import Transaction
+from .transaction import Transaction, create_tx_from_json
 
 class Block():
     """
@@ -78,17 +78,35 @@ class Block():
         pass
 
 
-    def __str__(self):
-        return dumps({
+    def to_dict(self):
+        return {
             "index": self.index,
             "hash": self._hash,
             "timestamp": self.timestamp,
             "parent_hash": self.parent_hash,
             "nonce":self.nonce,
             "difficulty": self.difficulty,
-            "transactions": dumps([str(tx) for tx in self.transactions.values()]),
+            "transactions": [tx.to_dict() for tx in self.transactions.values()],
             "merkle_tree_root": self.merkle_tree_root,
-        }).replace("\\", "")
+        }
+
+
+    def __str__(self):
+        return dumps(self.to_dict()).replace("\\", "")
+
+
+def create_block_from_json(data: dict) -> Block:
+    transactions = [create_tx_from_json(tx) for tx in data["transactions"]]
+    return Block(
+        parent_hash=data["parent_hash"],
+        transactions={tx._hash: tx for tx in transactions},
+        index=data["index"],
+        difficulty=data["difficulty"],
+        _hash=data.get("hash", None),
+        nonce=data.get("nonce", None),
+        timestamp=data.get("timestamp", None),
+        merkle_tree_root=data.get("merkle_tree_root", None),
+    )
 
 
 EMPTY_BLOCK_SIZE = getsizeof(
