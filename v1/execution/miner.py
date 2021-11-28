@@ -1,44 +1,65 @@
 from hashlib import sha256
 from random import randint
-from socket import socket
+from socket import socket, AF_INET, SOCK_DGRAM
 from typing import Dict, List
 from json import dumps
 from gnupg import GPG
-from utils import LOCALHOST
+from time import time
+from utils import LOCALHOST, Event
 from semantic.block import Block
 
 class Miner:
-    def __init__(self, master_port: int, block: Block, difficulty: int,  parent_hash = None):
+    def __init__(self, master_name: str, master_port: int, block: Block, parent_hash, gpg: GPG):
+        self.master_name = master_name
         self.master_port = master_port
         self.block = block
-        self.difficulty = difficulty
         self.parent_hash = parent_hash
+        self.gpg = gpg
 
-    def proof_of_work(self, last_block_hash):
-        hash = sha256()
-        hash.update(str(self.block).encode('utf-8'))
-        return self.block.hash.hexdigest() == hash.hexdigest() and int(hash.hexdigest(), 16) < 2**(256-self.difficulty) and self.block.previous_hash == last_block_hash
 
-    def mine(self):
-        self._mine()
-        self.block.updateTimeStamp()
-        self.block.print_block()
-        return self.block
+    def start(self):
+        self.block.merkle_tree_root = self.find_merkle_tree_root()
+        block = self.mine()
+        # After mining, set timestamp for block, txs and utxos.
+        # Also set block_hash to every txs and utxos.
+        mining_timestamp = time()
+        block.timestamp = mining_timestamp
+        for tx in block.transactions.values():
+            tx.block_hash = block._hash
+            tx.timestamp = mining_timestamp
+            for utxo in tx.outputs:
+                utxo.block_hash = block._hash
+                utxo.timestamp = mining_timestamp
+        self.send_message(str(block))
 
-    def _mine(self):
-        self.block.set_difficulty(self.difficulty)
-        self.block.hash.update(str(self.block).encode('utf-8'))
-        while int(self.block.hash.hexdigest(), 16) > 2**(256-self.difficulty):
-            self.block.set_nonce(randint(0, 10000000))
-            self.block.set_hash(sha256())
 
-    def send_message(self, sock: socket, event: int, data: str, gpg: GPG):
+    def mine(self) -> Block:
+        block = self.block
+        block._hash = self.block_hash(block)
+        while int(block._hash, 16) > 2 ** (256 - self.block.difficulty):
+            block.nonce = randint(0, 10000000)
+            block._hash = self.block_hash(block)
+        return block
+
+
+    def block_hash(self, block: Block) -> str:
+        block_str = f"{block.merkle_tree_root}{block.parent_hash}{block.nonce}"
+        return sha256(block_str.encode("utf-8")).hexdigest()
+
+
+    def find_merkle_tree_root(self) -> str:
+        # TODO: Construir el merkle tree.
+        pass
+
+
+    def send_message(self, data: str):
         message = dumps({
-            "event": event,
+            "event": Event.BLOCK.value,
             "data": data,
         })
-        encrypted_message = gpg.encrypt(message, self.name, armor=False)
+        sock = socket(AF_INET, SOCK_DGRAM)
+        encrypted_message = self.gpg.encrypt(message, self.master_name, armor=False)
         if not encrypted_message.ok:
             raise Exception("Encryption failed with status %s" % encrypted_message.status)
-        address = (LOCALHOST, self.port)
+        address = (LOCALHOST, self.master_port)
         sock.sendto(str(encrypted_message).encode(), address)

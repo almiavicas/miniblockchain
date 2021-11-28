@@ -62,9 +62,8 @@ def parse_config_file(filename: str) -> dict:
 def get_gpg() -> GPG:
     homedir = os.environ.get("HOME", None)
     if homedir is None:
-        print("You must set the HOME environment variable to the parent of the .gnupg folder")
+        raise Exception("You must set the HOME environment variable to the parent of the .gnupg folder")
     gnupghome = f"{homedir}/.gnupg"
-    print(gnupghome)
     try:
         return GPG(gnupghome=gnupghome) 
     except TypeError:

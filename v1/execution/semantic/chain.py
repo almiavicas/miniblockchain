@@ -12,15 +12,14 @@ class Chain():
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
         pass
 
-    def validate_block(self, block: Block) -> bool:
-        pass
-
     def insert_block(self, block: Block):
-        self.blockchain[block.hash.hexdigest()] = block
+        self.blockchain[block._hash] = block
+        for tx in block.transactions.values():
+            tx.status = "CONFIRMED"
 
-    def last_block(self):
-        els = list(self.blockchain.items())
-        return els[-1] if els else None
+    def last_block(self) -> Block:
+        blocks = list(self.blockchain.values())
+        return blocks[-1]
 
-    def length(self):
+    def __len__(self):
         return len(list(self.blockchain.items()))

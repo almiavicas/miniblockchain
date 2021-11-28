@@ -1,5 +1,7 @@
 from typing import List, Optional
 from hashlib import sha256
+from json import dumps
+from time import time
 from .unit_value import UnitValue
 
 class Transaction:
@@ -10,16 +12,44 @@ class Transaction:
         self,
         _input: List[UnitValue],
         output: List[UnitValue],
-        timestamp: int,
+        timestamp: float,
         block_hash: str,
         status: Optional[str] = "MEMPOOL",
     ):
+        self._hash = sha256(bytes(int(time()))).hexdigest()
         self._input = _input
+        for utxo in output:
+            utxo.tx_hash = self._hash
         self.output = output
         self.timestamp = timestamp
         self.block_hash = block_hash
-        assert status in self.VALID_STATUS
         self.status = status
+
+
+    @property
+    def status(self):
+        return self._status
+
+
+    @status.setter
+    def status(self, value: str):
+        assert value in self.VALID_STATUS
+        self._status = value
+
+
+    def __eq__(self, o):
+        # TODO: Define what equality means between two transactions
+        return True
+
+
+    def __str__(self):
+        return dumps({
+            "inputs": dumps([str(uv) for uv in self._input]),
+            "outputs": dumps([str(uv) for uv in self.output]),
+            "timestamp": self.timestamp,
+            "block_hash": self.block_hash,
+            "status": self.status,
+        }).replace("\\", "")
 
 
 def create_tx_from_json(data: dict) -> Transaction:
