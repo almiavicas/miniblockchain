@@ -15,7 +15,7 @@ from semantic.mempool import Mempool
 from semantic.chain import Chain
 from semantic.transaction import Transaction, create_tx_from_json
 from semantic.unit_value import UnitValue
-from semantic.block import Block, EMPTY_BLOCK_SIZE
+from semantic.block import Block, EMPTY_BLOCK_SIZE, create_block_from_json
 from miner import Miner
 from neighbor import Neighbor, create_neighbors
 from utils import (
@@ -111,18 +111,31 @@ class Master:
         event = decoded_message["event"]
         data = decoded_message["data"]
         if event == Event.PRESENTATION.value:
+            self.log.info("%s received from %s", Event.PRESENTATION, address)
             self.event_presentation(data, sock)
         elif event == Event.PRESENTATION_ACK.value:
+            self.log.info("%s received from %s", Event.PRESENTATION_ACK, address)
             self.event_presentation_ack(data)
         elif event == Event.NEW_TRANSACTION.value:
+            self.log.info("%s received from %s", Event.NEW_TRANSACTION, address)
             self.event_new_transaction(data, address, sock)
+        elif event == Event.TRANSACTION.value:
+            self.log.info("%s received from %s", Event.TRANSACTION, address)
+            self.event_transaction(data, address, sock)
+        elif event == Event.TRANSACTION_ACK.value:
+            self.log.info("%s received from %s", Event.TRANSACTION_ACK, address)
+            self.event_transaction_ack(data)
         elif event == Event.BLOCK.value:
+            self.log.info("%s received from %s", Event.BLOCK, address)
             self.event_block(data, address, sock)
         elif event == Event.BLOCK_ACK.value:
+            self.log.info("%s received from %s", Event.BLOCK_ACK, address)
             self.event_block_ack(data)
         elif event == Event.BLOCK_EXPLORE.value:
+            self.log.info("%s received from %s", Event.BLOCK_EXPLORE, address)
             self.event_block_explore(data, address, sock)
         elif event == Event.TRANSACTION_EXPLORE.value:
+            self.log.info("%s received from %s", Event.TRANSACTION_EXPLORE, address)
             self.event_transaction_explore(data, addres, sock)
 
 
@@ -152,7 +165,7 @@ class Master:
     def pick_transactions(self) -> OrderedDict:
         """Pick transactions from mempool for a block"""
         picked_txs = {}
-        for tx in self.mempool.transactions:
+        for tx in self.mempool:
             od_size = getsizeof(picked_txs)
             tx_size = getsizeof(tx)
             if EMPTY_BLOCK_SIZE + od_size + tx_size > self.block_max_size:
@@ -169,7 +182,6 @@ class Master:
     def event_presentation(self, data: dict, sock: socket):
         n = self.neighbors[data["name"]]
         n.is_active = True
-        self.log.info("%s received from %s", Event.PRESENTATION, str(n))
         data = {"name": self.name}
         n.send_message(sock, Event.PRESENTATION_ACK.value, data, self.gpg)
 
@@ -177,43 +189,67 @@ class Master:
     def event_presentation_ack(self, data: dict):
         n = self.neighbors[data["name"]]
         n.is_active = True
-        self.log.info("%s received from %s", Event.PRESENTATION_ACK, str(n))
 
 
     def event_new_transaction(self, data: dict, address: tuple, sock: socket):
-        self.log.info("%s received from %s", Event.NEW_TRANSACTION, address)
         signature = data["signature"]
         fingerprint = data["fingerprint"]
+        tx = None
         try:
             tx = self.validate_transaction(signature, fingerprint)
-            response = dumps({
-                "event": Event.NEW_TRANSACTION_ACK.value,
-                "data": {
-                    "status": "Si",
-                    "transaction": tx.to_dict()
-                }
-            })
+            response_data = {
+                "status": "Si",
+                "transaction": tx.to_dict()
+            }
         except Exception as e:
-            raise e
             self.log.warning("Declined transaction: %s", str(e))
-            response = dumps({
-                "event": Event.NEW_TRANSACTION_ACK.value,
-                "data": {
-                    "status": "No",
-                    "message": str(e),
-                }
-            })
+            response_data = {
+                "status": "No",
+                "message": str(e),
+            }
         finally:
-            sock.sendto(response.encode(), address)
+            response = {
+                "event": Event.NEW_TRANSACTION_ACK.value,
+                "data": response_data,
+            }
+            sock.sendto(dumps(response).encode(), address)
+        if tx is not None:
+            self.mempool.add_transaction(tx)
+            propagation_data = {
+                **data,
+                "transaction": tx.to_dict(),
+            }
+            for n in self.neighbors.values():
+                if n.is_active:
+                    n.send_message(sock, Event.TRANSACTION.value, propagation_data, self.gpg)
 
 
-
-    def event_new_transaction_ack(self, data: dict):
-        pass
-
-
-    def event_transaction(self, data: dict, sock: socket):
-        pass
+    def event_transaction(self, data: dict, address: tuple, sock: socket):
+        signature = data["signature"]
+        fingerprint = data["fingerprint"]
+        tx_json = data["transaction"]
+        tx = create_tx_from_json(tx_json)
+        sender_host, sender_port = address
+        try:
+            self.validate_transaction(signature, fingerprint)
+            response_data = {
+                "status": "Si",
+            }
+        except Exception as e:
+            self.log.warning("Declined transaction: %s", str(e))
+            response_data = {
+                "status": "No",
+                "message": str(e),
+            }
+        finally:
+            sender: Neighbor = next(filter(lambda n: n.port == sender_port, self.neighbors.values()), None)
+            if sender is not None:
+                sender.send_message(sock, Event.TRANSACTION_ACK.value, response_data, self.gpg)
+        if self.mempool.find_transaction(tx._hash) is not None:
+            self.mempool.add_transaction(tx)
+            for n in self.neighbors.values():
+                if n.is_active:
+                    n.send_message(sock, Event.TRANSACTION.value, data, self.gpg)
 
 
     def event_transaction_ack(self, data: dict):
@@ -221,16 +257,13 @@ class Master:
 
 
     def event_block(self, data: dict, address: tuple, sock: socket):
-        self.log.info("%s received from %s", Event.BLOCK, address)
-        pass
-        block_str = data["block"]
-        block_json = json.loads(block_str)
+        block_dict: dict = data["block"]
         nodes_knowing = data["propagated_nodes"]
         nodes_knowing.append(self.name)
         self.log.info("Nodes knowing: %s", nodes_knowing)
         host, sender_port = address
         propagate_data = {
-            "block": block_str,
+            "block": block_dict,
             "propagated_nodes": nodes_knowing,
         }
         for n in self.neighbors.values():
@@ -247,7 +280,6 @@ class Master:
 
 
     def event_block_explore(self, data: dict, address: tuple, sock: socket):
-        self.log.info("%s received from %s", Event.BLOCK_EXPLORE, address)
         height = data.get("height", None)
         block_hash = data.get("hash", None)
         block = None
@@ -293,11 +325,13 @@ class Master:
         """
         tx = self.decrypt_transaction(signature, fingerprint)
         input_utxo = tx._input
-        # Assert that every input_utxo is in the blockchain
         for utxo in input_utxo:
             utxo_tx = self.chain.find_tx_by_hash(utxo.tx_hash)
-            assert utxo_tx.find_output_utxo(utxo.fingerprint_hash) == utxo
-        # Assert that every input_utxo is unspent
+            chain_utxo = utxo_tx.find_output_utxo(utxo.fingerprint_hash)
+            # Assert that the input_utxo is in the blockchain
+            assert chain_utxo == utxo
+            # Assert that the input_utxo is unspent
+            assert chain_utxo.spent == False
         assert all(not utxo.spent for utxo in input_utxo)
         # Assert that every input_utxo is from the same sender
         fingerprint_hash = input_utxo[0].fingerprint_hash

@@ -31,7 +31,7 @@ class Miner:
                 utxo.block_hash = block._hash
                 utxo.timestamp = mining_timestamp
         data = {
-            "block": str(block),
+            "block": block.to_dict(),
             "propagated_nodes": [],
         }
         self.send_message(data)
@@ -51,7 +51,7 @@ class Miner:
         return sha256(block_str.encode()).hexdigest()
 
 
-    def send_message(self, data: str):
+    def send_message(self, data: dict):
         message = dumps({
             "event": Event.BLOCK.value,
             "data": data,

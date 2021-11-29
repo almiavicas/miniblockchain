@@ -11,7 +11,7 @@ class Neighbor:
         self.fingerprint = fingerprint
         self.is_active = False
 
-    def send_message(self, sock: socket, event: int, data: str, gpg: GPG):
+    def send_message(self, sock: socket, event: int, data: dict, gpg: GPG):
         message = dumps({
             "event": event,
             "data": data,

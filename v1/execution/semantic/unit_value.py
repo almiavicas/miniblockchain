@@ -25,13 +25,14 @@ class UnitValue:
         timestamp: float,
         tx_hash: Optional[str] = None,
         block_hash: Optional[str] = None,
+        spent: Optional[bool] = False,
     ):
         self.tx_hash = tx_hash
         self.amount = amount
         self.fingerprint_hash = fingerprint_hash
         self.timestamp = timestamp
         self.block_hash = block_hash
-        self.spent = False
+        self.spent = spent
 
 
     def __eq__(self, o):
@@ -52,6 +53,7 @@ class UnitValue:
             "fingerprint_hash": self.fingerprint_hash,
             "timestamp": self.timestamp,
             "block_hash": self.block_hash,
+            "spent": self.spent,
         }
 
 
