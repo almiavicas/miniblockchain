@@ -32,23 +32,15 @@ class Miner:
                 utxo.timestamp = mining_timestamp
         data = {
             "block": block.to_dict(),
-            "propagated_nodes": [],
         }
         self.send_message(data)
 
 
     def mine(self) -> Block:
         block = self.block
-        block._hash = self.block_hash(block)
-        while int(block._hash, 16) > 2 ** (256 - self.block.difficulty):
-            block.nonce = randint(0, 10000000)
-            block._hash = self.block_hash(block)
+        while int(block._hash, 16) > 2 ** (256 - block.difficulty):
+            block.nonce = randint(0, 2 ** 128)
         return block
-
-
-    def block_hash(self, block: Block) -> str:
-        block_str = f"{block.merkle_tree_root}{block.parent_hash}{block.nonce}"
-        return sha256(block_str.encode()).hexdigest()
 
 
     def send_message(self, data: dict):

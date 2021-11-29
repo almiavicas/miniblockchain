@@ -1,3 +1,3 @@
 TamanioMaxBloque: 512
 TiempoPromedioCreacionbloque: 1
-DificultadInicial: 25
+DificultadInicial: 24

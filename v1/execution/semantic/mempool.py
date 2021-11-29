@@ -25,4 +25,8 @@ class Mempool:
     def remove_transaction(self, tx_hash):
         del self.transactions[tx_hash]
 
+
+    def __len__(self):
+        return len(self.transactions.values())
+
     

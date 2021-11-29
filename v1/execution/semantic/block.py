@@ -57,14 +57,55 @@ class Block():
         timestamp: Optional[float] = None,
         merkle_tree_root: Optional[str] = None,
     ):
+        self._parent_hash = None
+        self._merkle_tree_root = None
+        self._nonce = None
+        self._hash = _hash
         self.parent_hash = parent_hash
         self.transactions = transactions
         self.index = index
         self.difficulty = difficulty
-        self._hash = _hash
         self.nonce = nonce
         self.timestamp = timestamp
         self.merkle_tree_root = merkle_tree_root
+
+
+    @property
+    def nonce(self):
+        return self._nonce
+
+
+    @nonce.setter
+    def nonce(self, value):
+        self._nonce = value
+        self._hash = self.block_hash()
+
+    
+    @property
+    def merkle_tree_root(self):
+        return self._merkle_tree_root
+
+    
+    @merkle_tree_root.setter
+    def merkle_tree_root(self, value):
+        self._merkle_tree_root = value
+        self._hash = self.block_hash()
+
+
+    @property
+    def parent_hash(self):
+        return self._parent_hash
+    
+
+    @parent_hash.setter
+    def parent_hash(self, value):
+        self._parent_hash = value
+        self._hash = self.block_hash()
+
+
+    def block_hash(self) -> str:
+        block_str = f"{self.merkle_tree_root}{self.parent_hash}{self.nonce}"
+        return sha256(block_str.encode()).hexdigest()
 
 
     def find_merkle_tree_root(self) -> str:

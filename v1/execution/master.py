@@ -6,7 +6,7 @@ from collections import OrderedDict
 from socket import socket, errno, SOCK_DGRAM, AF_INET
 from argparse import ArgumentParser
 from logging import getLogger, INFO, basicConfig, FileHandler, Formatter
-from threading import Thread
+from multiprocessing import Process, set_start_method
 from hashlib import sha256
 from time import sleep, time
 from json import dumps
@@ -56,6 +56,7 @@ class Master:
         self.block_max_size = block_max_size
         self.mean_block_creation_time = mean_block_creation_time
         self.initial_difficulty = initial_difficulty
+        set_start_method('spawn')
         self.miner = None
         # The basic config goes for a default StreamHandler to the console
         basicConfig(level=INFO, format=self.LOG_FORMAT)
@@ -146,31 +147,31 @@ class Master:
             n.send_message(sock, Event.PRESENTATION.value, data, self.gpg)
 
 
-    def create_miner(self) -> Thread:
+    def create_miner(self) -> Process:
         difficulty = self.calculate_difficulty()
         parent_hash = self.chain.last_block()._hash
         transactions = self.pick_transactions()
         block = Block(parent_hash, transactions, len(self.chain), difficulty)
         miner = Miner(self.name, self.port, block, parent_hash, self.gpg)
-        return Thread(target=miner.start)
+        return Process(target=miner.start)
 
 
     def destroy_miner(self):
-        if self.miner.is_alive():
-            self.miner._stop()
-            self.miner.join()
-        self.miner = None
+        if self.miner is not None and self.miner.is_alive():
+            self.miner.terminate()
+            self.miner = None
 
 
     def pick_transactions(self) -> OrderedDict:
         """Pick transactions from mempool for a block"""
-        picked_txs = {}
+        picked_txs = OrderedDict()
         for tx in self.mempool:
             od_size = getsizeof(picked_txs)
             tx_size = getsizeof(tx)
             if EMPTY_BLOCK_SIZE + od_size + tx_size > self.block_max_size:
                 break
             picked_txs[tx._hash] = tx
+        self.log.info("Picked %d transactions for new miner (%d in mempool)", len(picked_txs), len(self.mempool))
         return picked_txs
 
 
@@ -230,8 +231,11 @@ class Master:
         tx_json = data["transaction"]
         tx = create_tx_from_json(tx_json)
         sender_host, sender_port = address
+        validated = False
+        # Validation
         try:
             self.validate_transaction(signature, fingerprint)
+            validated = True
             response_data = {
                 "status": "Si",
             }
@@ -242,41 +246,61 @@ class Master:
                 "message": str(e),
             }
         finally:
-            sender: Neighbor = next(filter(lambda n: n.port == sender_port, self.neighbors.values()), None)
+            sender = next(filter(lambda n: n.port == sender_port, self.neighbors.values()), None)
             if sender is not None:
                 sender.send_message(sock, Event.TRANSACTION_ACK.value, response_data, self.gpg)
-        if self.mempool.find_transaction(tx._hash) is None:
+        # Insertion
+        if validated and self.mempool.find_transaction(tx._hash) is None:
             self.mempool.add_transaction(tx)
+            # Propagation
             for n in self.neighbors.values():
                 if n.is_active and n.port != sender_port:
                     n.send_message(sock, Event.TRANSACTION.value, data, self.gpg)
 
 
     def event_transaction_ack(self, data: dict):
-        pass
+        self.log.info("%s %s", Event.TRANSACTION_ACK, data)
 
 
     def event_block(self, data: dict, address: tuple, sock: socket):
         block_dict: dict = data["block"]
-        nodes_knowing = data["propagated_nodes"]
-        nodes_knowing.append(self.name)
-        self.log.info("Nodes knowing: %s", nodes_knowing)
-        host, sender_port = address
-        propagate_data = {
-            "block": block_dict,
-            "propagated_nodes": nodes_knowing,
-        }
-        for n in self.neighbors.values():
-            if n.is_active and n.name not in nodes_knowing:
-                n.send_message(sock, Event.BLOCK.value, propagate_data, self.gpg)
-            if n.port == sender_port:
-                n.is_active = True
-                ack_data = {"accepted": "yes"}
-                n.send_message(sock, Event.BLOCK_ACK.value, ack_data, self.gpg)
+        block = create_block_from_json(block_dict)
+        sender_host, sender_port = address
+        validated = False
+        # Validation
+        try:
+            self.validate_block(block)
+            validated = True
+            response = {
+                "status": "Si",
+            }
+        except Exception as e:
+            self.log.warning("Declined block: %s", str(e))
+            response = {
+                "status": "No",
+                "message": str(e),
+            }
+        finally:
+            sender = next(filter(lambda n: n.port == sender_port, self.neighbors.values()), None)
+            if sender is not None:
+                sender.send_message(sock, Event.BLOCK_ACK.value, response, self.gpg)
+            elif not validated:
+                self.destroy_miner()
+                self.create_miner()
+                return
+        # Insertion
+        if validated and self.chain.find_block_by_hash(block._hash) is None:
+            self.chain.insert_block(block)
+            self.destroy_miner()
+            self.create_miner()
+            # Propagation
+            for n in self.neighbors.values():
+                if n.is_active and n.port != sender_port:
+                    n.send_message(sock, Event.BLOCK.value, data, self.gpg)
 
 
     def event_block_ack(self, data: dict):
-        pass
+        self.log.info("%s %s", Event.BLOCK_ACK, data)
 
 
     def event_block_explore(self, data: dict, address: tuple, sock: socket):
@@ -312,6 +336,18 @@ class Master:
         return create_tx_from_json(tx_json)
 
 
+    def validate_block(self, block: Block):
+        """Run the block validations"""
+        # Assert the proof of work
+        assert int(block._hash, 16) <= 2 ** (256 - block.difficulty)
+        # Assert block index
+        assert block.index == len(self.chain)
+        # Assert block transactions
+        for tx in block.transactions.values():
+            self.validate_input_utxo(tx._input)
+
+
+
     def validate_transaction(self, signature: str, fingerprint: str) -> Transaction:
         """
         Run the transaction validations.
@@ -324,18 +360,9 @@ class Master:
             in the p2sh script.
         """
         tx = self.decrypt_transaction(signature, fingerprint)
+        self.validate_input_utxo(tx._input)
         input_utxo = tx._input
-        for utxo in input_utxo:
-            utxo_tx = self.chain.find_tx_by_hash(utxo.tx_hash)
-            chain_utxo = utxo_tx.find_output_utxo(utxo.fingerprint_hash)
-            # Assert that the input_utxo is in the blockchain
-            assert chain_utxo == utxo
-            # Assert that the input_utxo is unspent
-            assert chain_utxo.spent == False
-        assert all(not utxo.spent for utxo in input_utxo)
-        # Assert that every input_utxo is from the same sender
         fingerprint_hash = input_utxo[0].fingerprint_hash
-        assert all(utxo.fingerprint_hash == fingerprint_hash for utxo in input_utxo)
         # Run the p2sh script
         self.Script(
             signature,
@@ -345,7 +372,20 @@ class Master:
         ).execute()
         return tx
 
-    
+
+    def validate_input_utxo(self, input_utxo: List[UnitValue]):
+        for utxo in input_utxo:
+            utxo_tx = self.chain.find_tx_by_hash(utxo.tx_hash)
+            chain_utxo = utxo_tx.find_output_utxo(utxo.fingerprint_hash)
+            # Assert that the input_utxo is in the blockchain
+            assert chain_utxo == utxo
+            # Assert that the input_utxo is unspent
+            assert chain_utxo.spent == False
+        # Assert that every input_utxo is from the same sender
+        fingerprint_hash = input_utxo[0].fingerprint_hash
+        assert all(utxo.fingerprint_hash == fingerprint_hash for utxo in input_utxo)
+
+
     class Script:
         "P2SH script"
         def __init__(self, sig: str, pub_key: str, pub_key_hash, gpg: GPG):
@@ -407,7 +447,8 @@ def main():
     create_dir(args.logs_dir)
     network = parse_network_file(args.network_file)
     config = parse_config_file(args.config_file)
-    # print(config)
+    if config["tamaniomaxbloque"] <= EMPTY_BLOCK_SIZE:
+        raise Exception("El tamanio max del bloque es menor al tamanio del bloque vacio (%d)" % EMPTY_BLOCK_SIZE)
     log_file = f"{args.logs_dir}/{args.name}.log"
     gpg: GPG = get_gpg()
     nodes_fingerprints = get_fingerprints(gpg, "nodo")
