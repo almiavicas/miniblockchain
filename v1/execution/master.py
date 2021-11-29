@@ -245,10 +245,10 @@ class Master:
             sender: Neighbor = next(filter(lambda n: n.port == sender_port, self.neighbors.values()), None)
             if sender is not None:
                 sender.send_message(sock, Event.TRANSACTION_ACK.value, response_data, self.gpg)
-        if self.mempool.find_transaction(tx._hash) is not None:
+        if self.mempool.find_transaction(tx._hash) is None:
             self.mempool.add_transaction(tx)
             for n in self.neighbors.values():
-                if n.is_active:
+                if n.is_active and n.port != sender_port:
                     n.send_message(sock, Event.TRANSACTION.value, data, self.gpg)
 
 
