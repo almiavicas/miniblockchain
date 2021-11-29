@@ -253,7 +253,7 @@ class Master:
 
 
     def event_transaction_ack(self, data: dict):
-        self.log.info(data)
+        pass
 
 
     def event_block(self, data: dict, address: tuple, sock: socket):
