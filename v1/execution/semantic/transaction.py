@@ -14,10 +14,12 @@ class Transaction:
         output: List[UnitValue],
         timestamp: Optional[float] = time(),
         block_hash: Optional[str] = None,
-        _hash: Optional[str] = sha256(str(time()).encode()).hexdigest(),
+        _hash: Optional[str] = None,
         status: Optional[str] = "MEMPOOL",
     ):
         self._input = _input
+        if _hash is None:
+            _hash = sha256(str(time()).encode()).hexdigest()
         self._hash = _hash
         for utxo in output:
             utxo.tx_hash = self._hash
