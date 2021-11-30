@@ -34,4 +34,4 @@ if [[ -z $(command -v python) ]]; then
     echo "Please start a python environment to run the python command"
     exit 1
 fi
-python genTransac.py $archivoConfig $archivoNodo $dirLogs
+gnome-terminal -- python genTransac.py $archivoConfig $archivoNodo $dirLogs

@@ -1,4 +1,4 @@
-frecuencia: 3
+frecuencia: 2
 NumEntradasMin: 1
 NumEntradasMax: 4
 NumSalidasMin: 2
