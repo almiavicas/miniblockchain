@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Script para explorar bloques.
+# Ejemplo: ./exploradorBloque nodo1 3001 -a 0
+
+# Parsear input
+nombreNodo=$1
+shift;
+puertoNodo=$1
+shift;
+while [[ $# -gt 0 ]]; do
+    key=$1
+
+    case $key in
+        -a)
+            alturaBloque=$2
+            shift
+            shift
+            ;;
+        -h)
+            hashBloque=$2
+            shift
+            shift
+            ;;
+        *) # unknown option
+            echo "Opcion invalida $key"
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z $(command -v python) ]]; then
+    echo "Please start a python environment to run the python command"
+    exit 1
+fi
+
+export PYTHONPATH="${PYTHONPATH}:."
+
+if [[ -z $alturaBloque ]]; then
+    python utils/block_explorer.py $nombreNodo $puertoNodo --hash $hashBloque
+else
+    python utils/block_explorer.py $nombreNodo $puertoNodo --height $alturaBloque 
+fi
