@@ -218,6 +218,7 @@ class Master:
             sock.sendto(dumps(response).encode(), address)
         if tx is not None:
             self.mempool.add_transaction(tx)
+            self.log.info("Transactions in mempool: %d", len(self.mempool))
             propagation_data = {
                 **data,
                 "transaction": tx.to_dict(),
@@ -373,6 +374,9 @@ class Master:
             in the p2sh script.
         """
         tx = self.decrypt_transaction(signature, fingerprint)
+        # Validate tx is in mempool
+        if self.mempool.find_transaction(tx._hash) is not None:
+            raise Exception("Transaction hash already found in mempool")
         self.validate_input_utxo(tx._input)
         input_utxo = tx._input
         fingerprint_hash = input_utxo[0].fingerprint_hash
