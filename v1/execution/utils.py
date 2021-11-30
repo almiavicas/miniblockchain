@@ -1,7 +1,9 @@
 import os
 from typing import List, Dict, Any
 from collections import namedtuple
+from socket import socket
 from enum import Enum
+from json import dumps
 from gnupg import GPG
 
 LOCALHOST = "127.0.0.1"
@@ -84,3 +86,14 @@ def get_fingerprints(gpg: GPG, prefix=None) -> Dict[str, str]:
                 fingerprints[uid] = key["fingerprint"]
                 break
     return fingerprints
+
+
+def send_message_to_node(data: dict, event: int, name: str, port: int, sock: socket, gpg: GPG):
+    message = dumps({
+        "event": event,
+        "data": data,
+    })
+    encrypted_message = gpg.encrypt(message, name, armor=False)
+    if not encrypted_message.ok:
+        raise Exception("Encryption failed with status %s" % encrypted_message.status)
+    sock.sendto(str(encrypted_message).encode(), (LOCALHOST, port))

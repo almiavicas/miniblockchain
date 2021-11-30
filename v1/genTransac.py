@@ -15,10 +15,12 @@ from execution.utils import (
     Event,
     LOCALHOST,
     BUFSIZE,
+    send_message_to_node,
 )
 from execution.semantic.unit_value import UnitValue
 from execution.semantic.block import Block, create_block_from_json
 from execution.semantic.transaction import Transaction
+from utils.block_explorer import explore_by_height
 
 class TransactionGenerator:
 
@@ -61,7 +63,9 @@ class TransactionGenerator:
                 "fingerprint": self.fingerprints[sender],
                 "signature": str(signed_data),
             }
-            self.send_message(request_body, Event.NEW_TRANSACTION.value, receiver_node)
+            event = Event.NEW_TRANSACTION.value
+            node_port = self.nodes_config[receiver_node]
+            send_message_to_node(request_body, event, receiver_node, node_port, self.sock, self.gpg)
             response = self.sock.recv(BUFSIZE)
             response_json = loads(response.decode())
             self.log_event(response_json["event"], receiver_node)
@@ -89,16 +93,10 @@ class TransactionGenerator:
 
 
     def load_genesis_block_outputs(self) -> List[UnitValue]:
-        data = {"height": 0}
         receiver_node = choice(list(self.nodes_config.keys()))
         self.log.info("Asking for genesis block to %s", receiver_node)
-        self.send_message(data, Event.BLOCK_EXPLORE.value, receiver_node)
-        response = self.sock.recv(BUFSIZE)
-        response_json = loads(response.decode())
-        self.log_event(response_json["event"], receiver_node)
-        data = response_json["data"]
-        block_json = data["block"]
-        block = create_block_from_json(block_json)
+        node_port = self.nodes_config[receiver_node]
+        block = explore_by_height(0, receiver_node, node_port, self.sock, self.gpg)
         utxos = []
         for tx in block.transactions.values():
             utxos = utxos + tx.output
@@ -138,19 +136,6 @@ class TransactionGenerator:
         unit_values = self.wallets[sha256(fingerprint.encode()).hexdigest()]
         utxos = list(filter(lambda x: not x.spent, unit_values))
         return utxos
-
-
-    def send_message(self, data: dict, event: int, node_name: str):
-        message = dumps({
-            "event": event,
-            "data": data,
-        })
-        encrypted_message = self.gpg.encrypt(message, node_name, armor=False)
-        if not encrypted_message.ok:
-            raise Exception("Encryption failed with status %s" % encrypted_message.status)
-        self.sock.sendto(str(encrypted_message).encode(), (LOCALHOST, self.nodes_config[node_name]))
-
-
 
 
 def main():
