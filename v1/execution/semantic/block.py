@@ -111,7 +111,7 @@ class Block():
     def find_merkle_tree_root(self) -> str:
         transactions = [str(tx) for tx in self.transactions.values()]
         merkle_tree = MerkleTree(transactions)
-        return merkle_tree.getRootHash()
+        return merkle_tree.get_root_hash()
 
 
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
