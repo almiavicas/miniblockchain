@@ -2,8 +2,8 @@ from sys import getsizeof
 from hashlib import sha256
 from typing import Optional, OrderedDict
 from json import dumps
-from datetime import datetime
 from .transaction import Transaction, create_tx_from_json
+from .merkle import MerkleTree
 
 class Block():
     """
@@ -45,6 +45,7 @@ class Block():
         The merkle_tree_root of the transactions tree. It should only be
         given when the block is propagated from another node.
     """
+
     def __init__(
         self, 
         parent_hash: str,
@@ -108,10 +109,8 @@ class Block():
 
 
     def find_merkle_tree_root(self) -> str:
-        """
-        Build the merkle tree from transactions and return the root hash.
-        """
-        pass
+        merkle_tree = MerkleTree(self.transactions.values())
+        return merkle_tree.getRootHash()
 
 
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
@@ -161,3 +160,4 @@ EMPTY_BLOCK_SIZE = getsizeof(
         sha256().hexdigest()
     )
 )
+
