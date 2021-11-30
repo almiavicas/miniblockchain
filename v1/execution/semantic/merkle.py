@@ -18,7 +18,7 @@ class Node:
  
 class MerkleTree:
     def __init__(self, values: List[str])-> None:
-        self.root = None
+        self.root = Node(None, None, Node.hash('root'),'root')
         self.__buildTree(values)
  
     def __buildTree(self, values: List[str])-> None:
@@ -47,5 +47,5 @@ class MerkleTree:
         return Node(left, right, value,content)
     
     def getRootHash(self)-> str:
-        self.root.value if self.root else None
+        return self.root.value
         

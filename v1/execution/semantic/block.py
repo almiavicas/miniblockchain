@@ -3,7 +3,7 @@ from hashlib import sha256
 from typing import Optional, OrderedDict
 from json import dumps
 from .transaction import Transaction, create_tx_from_json
-from .merkle import MerkleTree
+from .merkle import MerkleTree, Node
 
 class Block():
     """
@@ -109,7 +109,8 @@ class Block():
 
 
     def find_merkle_tree_root(self) -> str:
-        merkle_tree = MerkleTree(self.transactions.values())
+        transactions = [str(tx) for tx in self.transactions.values()]
+        merkle_tree = MerkleTree(transactions)
         return merkle_tree.getRootHash()
 
 
