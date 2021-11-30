@@ -1,9 +1,8 @@
 from sys import getsizeof
 from hashlib import sha256
-from typing import Optional
+from typing import Optional, OrderedDict
 from json import dumps
 from datetime import datetime
-from collections import OrderedDict
 from .transaction import Transaction, create_tx_from_json
 
 class Block():
@@ -49,7 +48,7 @@ class Block():
     def __init__(
         self, 
         parent_hash: str,
-        transactions: OrderedDict,
+        transactions: OrderedDict[str, Transaction],
         index: int,
         difficulty: int,
         _hash: Optional[str] = None,
