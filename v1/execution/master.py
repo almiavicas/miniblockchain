@@ -148,6 +148,7 @@ class Master:
 
 
     def create_miner(self) -> Process:
+        self.log.info("Creating new miner")
         difficulty = self.calculate_difficulty()
         parent_hash = self.chain.last_block()._hash
         transactions = self.pick_transactions()
@@ -158,6 +159,7 @@ class Master:
 
     def destroy_miner(self):
         if self.miner is not None and self.miner.is_alive():
+            self.log.warning("Killing miner")
             self.miner.terminate()
             self.miner = None
 
@@ -285,14 +287,19 @@ class Master:
             if sender is not None:
                 sender.send_message(sock, Event.BLOCK_ACK.value, response, self.gpg)
             elif not validated:
+                # Enter here if the sender is the miner and the block was invalid
                 self.destroy_miner()
-                self.create_miner()
+                self.miner = self.create_miner()
+                self.miner.start()
                 return
-        # Insertion
         if validated and self.chain.find_block_by_hash(block._hash) is None:
+            # Insertion
             self.chain.insert_block(block)
+            for tx in block.transactions.values():
+                self.mempool.remove_transaction(tx._hash)
             self.destroy_miner()
-            self.create_miner()
+            self.miner = self.create_miner()
+            self.miner.start()
             # Propagation
             for n in self.neighbors.values():
                 if n.is_active and n.port != sender_port:
@@ -338,13 +345,19 @@ class Master:
 
     def validate_block(self, block: Block):
         """Run the block validations"""
-        # Assert the proof of work
-        assert int(block._hash, 16) <= 2 ** (256 - block.difficulty)
-        # Assert block index
-        assert block.index == len(self.chain)
-        # Assert block transactions
+        # Validate the proof of work
+        if not int(block._hash, 16) <= 2 ** (256 - block.difficulty):
+            raise Exception("Proof of work was declined")
+        # Validate block index
+        if not block.index == len(self.chain):
+            raise Exception("Block index is invalid with the current chain length")
         for tx in block.transactions.values():
+            # Validate tx input utxos
             self.validate_input_utxo(tx._input)
+            # Validate tx is in mempool
+            if self.mempool.find_transaction(tx._hash) is None:
+                raise Exception("Transaction not found in mempool")
+
 
 
 
@@ -378,12 +391,15 @@ class Master:
             utxo_tx = self.chain.find_tx_by_hash(utxo.tx_hash)
             chain_utxo = utxo_tx.find_output_utxo(utxo.fingerprint_hash)
             # Assert that the input_utxo is in the blockchain
-            assert chain_utxo == utxo
+            if not chain_utxo == utxo:
+                raise Exception("Input utxo not found in chain")
             # Assert that the input_utxo is unspent
-            assert chain_utxo.spent == False
+            if chain_utxo.spent:
+                raise Exception("Input utxo already spent")
         # Assert that every input_utxo is from the same sender
         fingerprint_hash = input_utxo[0].fingerprint_hash
-        assert all(utxo.fingerprint_hash == fingerprint_hash for utxo in input_utxo)
+        if not all(utxo.fingerprint_hash == fingerprint_hash for utxo in input_utxo):
+            raise Exception("Input utxos do not belong to the same user")
 
 
     class Script:
@@ -414,7 +430,8 @@ class Master:
                     commands[element](stack)
                 else:
                     stack.append(element)
-            assert len(stack) == 1 and stack[0] == True
+            if not (len(stack) == 1 and stack[0] == True):
+                raise Exception("P2SH script invalid stack status")
             return stack
 
         def op_dup(self, stack: List[str]):
@@ -426,7 +443,8 @@ class Master:
         def op_equalverify(self, stack: List[str]):
             pub_key_hash = stack.pop()
             pub_hash_a = stack.pop()
-            assert pub_key_hash == pub_hash_a
+            if not pub_key_hash == pub_hash_a:
+                raise Exception("op_equalverify failed")
 
         def op_checksig(self, stack: List[str]):
             fingerprint = stack.pop()
