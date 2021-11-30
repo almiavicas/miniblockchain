@@ -17,3 +17,10 @@ def explore_by_height(height: int, node_name: str, node_port: int, sock: socket,
     send_message_to_node(data, Event.BLOCK_EXPLORE.value, node_name, node_port, sock, gpg)
     response = sock.recv(BUFSIZE)
     return parse_response(response)
+
+
+def explore_by_hash(_hash: str, node_name: str, node_port: int, sock: socket, gpg: GPG) -> Block:
+    data = {"hash": _hash}
+    send_message_to_node(data, Event.BLOCK_EXPLORE.value, node_name, node_port, sock, gpg)
+    response = sock.recv(BUFSIZE)
+    return parse_response(response)
