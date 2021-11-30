@@ -101,7 +101,7 @@ class Master:
         transactions = OrderedDict({ transaction._hash: transaction })
         block = Block("0x00", transactions, 0, 0, empty_string_hash)
         self.chain.insert_block(block)
-        self.log.info("Added origin block: %s", block)
+        self.log.info("Added origin block")
 
 
     def handle_message(self, message: bytes, address: tuple, sock: socket):
@@ -255,6 +255,7 @@ class Master:
         # Insertion
         if validated and self.mempool.find_transaction(tx._hash) is None:
             self.mempool.add_transaction(tx)
+            self.log.info("Transactions in mempool: %d", len(self.mempool))
             # Propagation
             for n in self.neighbors.values():
                 if n.is_active and n.port != sender_port:
@@ -298,6 +299,7 @@ class Master:
             self.chain.insert_block(block)
             for tx in block.transactions.values():
                 self.mempool.remove_transaction(tx._hash)
+            self.log.info("Removed %d transactions from mempool", len(block.transactions.values()))
             self.destroy_miner()
             self.miner = self.create_miner()
             self.miner.start()
@@ -358,8 +360,6 @@ class Master:
             # Validate tx is in mempool
             if self.mempool.find_transaction(tx._hash) is None:
                 raise Exception("Transaction not found in mempool")
-
-
 
 
     def validate_transaction(self, signature: str, fingerprint: str) -> Transaction:
