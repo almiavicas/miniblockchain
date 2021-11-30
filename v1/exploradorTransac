@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Script para explorar bloques.
+# Ejemplo: ./exploradorTransac nodo1 3001 -h e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+# Parsear input
+nombreNodo=$1
+shift;
+puertoNodo=$1
+shift;
+while [[ $# -gt 0 ]]; do
+    key=$1
+
+    case $key in
+        -h)
+            hashTransaccion=$2
+            shift
+            shift
+            ;;
+        *) # unknown option
+            echo "Opcion invalida $key"
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z $(command -v python) ]]; then
+    echo "Please start a python environment to run the python command"
+    exit 1
+fi
+
+export PYTHONPATH="${PYTHONPATH}:."
+
+python utils/transaction_explorer.py $nombreNodo $puertoNodo --hash $hashTransaccion

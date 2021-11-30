@@ -137,7 +137,7 @@ class Master:
             self.event_block_explore(data, address, sock)
         elif event == Event.TRANSACTION_EXPLORE.value:
             self.log.info("%s received from %s", Event.TRANSACTION_EXPLORE, address)
-            self.event_transaction_explore(data, addres, sock)
+            self.event_transaction_explore(data, address, sock)
 
 
     def present(self, sock: socket):
@@ -330,8 +330,18 @@ class Master:
         sock.sendto(dumps(response).replace("\\", "").encode(), address)
 
 
-    def event_transaction_explore(self, data: dict, addres: tuple, sock: socket):
-        pass
+    def event_transaction_explore(self, data: dict, address: tuple, sock: socket):
+        tx_hash = data.get("hash", None)
+        tx = None
+        if isinstance(tx_hash, str):
+            tx = self.chain.find_tx_by_hash(tx_hash)
+        response = {
+            "event": Event.TRANSACTION_EXPLORE_ACK.value,
+            "data": {
+                "transaction": tx.to_dict(),
+            },
+        }
+        sock.sendto(dumps(response).replace("\\", "").encode(), address)
 
 
     def event_log_dir(self, data: dict):
