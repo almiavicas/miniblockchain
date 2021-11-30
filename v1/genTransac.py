@@ -3,7 +3,7 @@ from typing import Dict, List
 from random import choice, randrange, sample, uniform
 from socket import socket, AF_INET, SOCK_DGRAM
 from logging import getLogger, INFO, basicConfig
-from json import dumps, loads
+from json import loads
 from hashlib import sha256
 from time import time, sleep
 from gnupg import GPG
@@ -13,12 +13,11 @@ from execution.utils import (
     get_fingerprints,
     get_gpg,
     Event,
-    LOCALHOST,
     BUFSIZE,
     send_message_to_node,
 )
 from execution.semantic.unit_value import UnitValue
-from execution.semantic.block import Block, create_block_from_json
+from execution.semantic.block import Block
 from execution.semantic.transaction import Transaction
 from utils.block_explorer import explore_by_height
 
