@@ -177,10 +177,10 @@ class Master:
 
 
     def calculate_difficulty(self, parent_block, block) -> int:
-        if(abs(block.timestamp - parent_block.timestamp) < self.mean_block_creation_time + 5):
+        if(abs(block.timestamp - parent_block.timestamp) < (self.mean_block_creation_time * 60) + 5):
             self.log.info("Very short block mining time - The difficulty of mining a new block will be increased")
             return self.difficulty + 1
-        elif(abs(block.timestamp - parent_block.timestamp) > self.mean_block_creation_time - 5):
+        elif(abs(block.timestamp - parent_block.timestamp) > (self.mean_block_creation_time * 60) - 5):
             self.log.info("Very long block mining time - The difficulty of mining a new block will be decreased")
             return self.difficulty - 1
 
