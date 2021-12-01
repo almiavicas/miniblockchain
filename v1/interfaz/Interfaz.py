@@ -28,6 +28,8 @@ def NextEntry():
 
     print("Procesando log: " + entradas[pos])
 
+    print(node_cbs)
+
     for (i, j) in node_cbs:
         if i.get() == entradas[pos] or len(node_cbs) == 1:
             j.config(state=NORMAL)
@@ -57,7 +59,7 @@ def leer(d):
     for i in range(100):
         r = random.randint(0,len(nodeNames))
         entradas.append(('node'+str(r)))
-
+    print(entradas)
         
 def getNodeNames():
     return nodeNames
@@ -203,7 +205,7 @@ root = Tk()
 
 app = Application(root)
 
-if sys.argv[3] == "-mt":
+if sys.argv[2] == "-mt":
     r = app.make_interfaz(1, 1)
 else:
     r = app.make_interfaz(4, 4)

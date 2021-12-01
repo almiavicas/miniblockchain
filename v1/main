@@ -1,0 +1,6 @@
+#!/bin/bash
+
+./nodo -n nodo1 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo2 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo3 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo4 -d logs/ -f example_network.txt -c example_config.txt
