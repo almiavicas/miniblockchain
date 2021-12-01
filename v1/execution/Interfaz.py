@@ -7,8 +7,7 @@
 from tkinter import *
 from tkinter import ttk
 import math
-import datetime
-import random
+from time import sleep
 from utils import (
     create_dir,
     parse_network_file,
@@ -45,11 +44,36 @@ def NextEntry():
     for (i, j) in node_cbs:
         if i.get() == entradas[pos] or len(node_cbs) == 1:
             j.config(state=NORMAL)
-            j.insert(END, event_logs[pos]+"\n\n")
+
+            if(tipoAccion_cb.get() == 'Presentacion'):
+                while pos <= len(event_logs):
+                    if "PRESENTATION" in event_logs[pos] or "PRESENTATION_ACK" in event_logs[pos]:
+                        j.insert(END, event_logs[pos]+"\n\n")
+                        break
+                    pos = pos + 1
+            elif(tipoAccion_cb.get() == 'Transacción Nueva'):
+                while pos <= len(event_logs):
+                    if "NEW_TRANSACTION" in event_logs[pos] or "NEW_TRANSACTION_ACK" in event_logs[pos]:
+                        j.insert(END, event_logs[pos]+"\n\n")
+                        break
+                    pos = pos + 1
+            elif(tipoAccion_cb.get() == 'Transacción Propaga'):
+                while pos <= len(event_logs):
+                    if "TRANSACTION" in event_logs[pos] or "TRANSACTION_ACK" in event_logs[pos]:
+                        j.insert(END, event_logs[pos]+"\n\n")
+                        break
+                    post = post + 1
+            elif(tipoAccion_cb.get() == 'Bloque Propaga'):
+                while pos <= len(event_logs):
+                    if "BLOCK" in event_logs[pos] or "BLOCK_ACK" in event_logs[pos]:
+                        j.insert(END, event_logs[pos]+"\n\n")
+                        break
+                    pos = pos + 1
+            else:
+                j.insert(END, event_logs[pos]+"\n\n")
+                pos = pos + 1
             # j.insert(END,"Acc:"+str(pos)+":\n " +entradas[pos]+"\n\n")
             j.config(state=DISABLED)
-
-    pos = pos + 1
 
 # lee los archivos y saca la informacion
 # ESTO ES UN STUB, AQUI DEBE AGREGAR CODIGO APROPIADO
@@ -61,7 +85,7 @@ def leer(d):
                  'nodo7', 'nodo8', 'nodo9', 'nodo10', 'nodo11',
                  'nodo12', 'nodo13', 'nodo14', 'nodo15', 'nodo16',
                  'nodo17', 'nodo18', 'nodo19' , 'nodo20')
-                 
+
     # obtiene entradas de del log
 
     logs = OrderedDict()
