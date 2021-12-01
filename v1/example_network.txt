@@ -1,10 +1,45 @@
-4
+20
 nodo1 3001
 nodo2 3002
 nodo3 3003
 nodo4 3004
-4
+nodo5 3005
+nodo6 3006
+nodo7 3007
+nodo8 3008
+nodo9 3009
+nodo10 3010
+nodo11 3011
+nodo12 3012
+nodo13 3013
+nodo14 3014
+nodo15 3015
+nodo16 3016
+nodo17 3017
+nodo18 3018
+nodo19 3019
+nodo20 3020
+23
 nodo1 nodo2
 nodo1 nodo3
 nodo3 nodo4
 nodo2 nodo4
+nodo4 nodo5
+nodo4 nodo6
+nodo6 nodo7
+nodo7 nodo1
+nodo2 nodo8
+nodo9 nodo10
+nodo9 nodo11
+nodo3 nodo9
+nodo2 nodo13
+nodo11 nodo13
+nodo13 nodo14
+nodo6 nodo15
+nodo11 nodo16
+nodo1 nodo16
+nodo16 nodo17
+nodo16 nodo18
+nodo18 nodo19
+nodo18 nodo5
+nodo19 nodo20

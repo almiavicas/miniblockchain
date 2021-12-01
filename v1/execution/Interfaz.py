@@ -9,6 +9,18 @@ from tkinter import ttk
 import math
 import datetime
 import random
+from utils import (
+    create_dir,
+    parse_network_file,
+    get_gpg,
+    get_fingerprints,
+    parse_config_file,
+    parse_log_file,
+    Event,
+    LOCALHOST,
+    BUFSIZE,
+)
+from collections import OrderedDict
 
 MaxCombos= 1
 pos = 0
@@ -33,7 +45,8 @@ def NextEntry():
     for (i, j) in node_cbs:
         if i.get() == entradas[pos] or len(node_cbs) == 1:
             j.config(state=NORMAL)
-            j.insert(END,"Acc:"+str(pos)+":\n " +entradas[pos]+"\n\n")
+            j.insert(END, event_logs[pos]+"\n\n")
+            # j.insert(END,"Acc:"+str(pos)+":\n " +entradas[pos]+"\n\n")
             j.config(state=DISABLED)
 
     pos = pos + 1
@@ -42,24 +55,31 @@ def NextEntry():
 # ESTO ES UN STUB, AQUI DEBE AGREGAR CODIGO APROPIADO
 def leer(d):
     # obtiene nombre nodos
-    global nodeNames, fechaI, fechaF, entradas
+    global nodeNames, fechaI, fechaF, entradas, event_logs
 
-    nodeNames = ('node0', 'node1', 'node2', 'node3', 'node4', 'node5',
-                 'node6', 'node7', 'node8', 'node9', 'node10',
-                 'node11', 'node12', 'node13', 'node14', 'node15',
-                 'node16', 'node17', 'node18' , 'node19')
+    nodeNames = ('nodo1', 'nodo2', 'nodo3', 'nodo4', 'nodo5', 'nodo6',
+                 'nodo7', 'nodo8', 'nodo9', 'nodo10', 'nodo11',
+                 'nodo12', 'nodo13', 'nodo14', 'nodo15', 'nodo16',
+                 'nodo17', 'nodo18', 'nodo19' , 'nodo20')
 
     fechaI = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     fechaF = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     
     # obtiene entradas de del log
 
-    entradas = [ ]
+    logs = OrderedDict()
+    for nodo in nodeNames:
+        parse_log_file(d + nodo + '.log', logs, nodo)
 
-    for i in range(100):
-        r = random.randint(0,len(nodeNames))
-        entradas.append(('node'+str(r)))
-    print(entradas)
+    logs = OrderedDict(sorted(logs.items()))
+    print(logs.keys())
+
+    entradas = [ ]
+    event_logs = [ ]
+
+    for i in logs:
+        entradas.append((logs[i]["nodo"]))
+        event_logs.append((logs[i]["log_event"]))
         
 def getNodeNames():
     return nodeNames

@@ -3,4 +3,20 @@
 ./nodo -n nodo1 -d logs/ -f example_network.txt -c example_config.txt && \
 ./nodo -n nodo2 -d logs/ -f example_network.txt -c example_config.txt && \
 ./nodo -n nodo3 -d logs/ -f example_network.txt -c example_config.txt && \
-./nodo -n nodo4 -d logs/ -f example_network.txt -c example_config.txt
+./nodo -n nodo4 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo5 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo6 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo7 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo8 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo9 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo10 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo11 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo12 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo13 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo14 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo15 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo16 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo17 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo18 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo19 -d logs/ -f example_network.txt -c example_config.txt && \
+./nodo -n nodo20 -d logs/ -f example_network.txt -c example_config.txt

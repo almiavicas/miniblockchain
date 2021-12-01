@@ -5,6 +5,8 @@ from socket import socket
 from enum import Enum
 from json import dumps
 from gnupg import GPG
+from datetime import datetime
+from collections import OrderedDict
 
 LOCALHOST = "127.0.0.1"
 BUFSIZE = 2**13
@@ -61,6 +63,19 @@ def parse_config_file(filename: str) -> dict:
         for line in _file.readlines():
             key, value = line.split()
             config[key[:-1].lower()] = int(value)
+    return config
+
+def parse_log_file(filename: str, logs: OrderedDict, nodo_name: str) -> dict:
+    config = {}
+    with open(filename, encoding="utf-8") as _file:
+        for line in _file.readlines():
+            time, log_event = line.split('|')
+            timeParser = datetime.strptime(time.strip(), "%Y-%m-%d %H:%M:%S,%f")
+            nodo, log = log_event.strip().split(':', 1)
+            logs[timeParser] = {
+                'nodo': nodo,
+                'log_event': log
+            }
     return config
 
 def get_gpg() -> GPG:
