@@ -2,6 +2,7 @@ from sys import getsizeof
 from hashlib import sha256
 from typing import Optional, OrderedDict
 from json import dumps
+from time import time
 from .transaction import Transaction, create_tx_from_json
 from .merkle import MerkleTree, Node
 
@@ -54,7 +55,7 @@ class Block():
         difficulty: int,
         _hash: Optional[str] = None,
         nonce: Optional[str] = None,
-        timestamp: Optional[float] = None,
+        timestamp: Optional[float] = time(),
         merkle_tree_root: Optional[str] = None,
     ):
         self._parent_hash = None

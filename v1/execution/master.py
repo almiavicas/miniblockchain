@@ -45,7 +45,7 @@ class Master:
         port: int,
         block_max_size: int = 512,
         mean_block_creation_time: int = 1,
-        initial_difficulty: int = 1000,
+        difficulty: int = 10000,
     ):
         self.name = name
         self.mempool = Mempool()
@@ -55,7 +55,7 @@ class Master:
         self.port = port
         self.block_max_size = block_max_size
         self.mean_block_creation_time = mean_block_creation_time
-        self.initial_difficulty = initial_difficulty
+        self.difficulty = difficulty
         set_start_method('spawn')
         self.miner = None
         # The basic config goes for a default StreamHandler to the console
@@ -149,10 +149,9 @@ class Master:
 
     def create_miner(self) -> Process:
         self.log.info("Creating new miner")
-        difficulty = self.calculate_difficulty()
         parent_hash = self.chain.last_block()._hash
         transactions = self.pick_transactions()
-        block = Block(parent_hash, transactions, len(self.chain), difficulty)
+        block = Block(parent_hash, transactions, len(self.chain), self.difficulty)
         miner = Miner(self.name, self.port, block, parent_hash, self.gpg)
         return Process(target=miner.start)
 
@@ -177,9 +176,16 @@ class Master:
         return picked_txs
 
 
-    def calculate_difficulty(self) -> int:
-        # TODO: Calculate actual difficulty based on previous blocks
-        return self.initial_difficulty
+    def calculate_difficulty(self, parent_block, block) -> int:
+        if(abs(block.timestamp - parent_block.timestamp) < self.mean_block_creation_time + 5):
+            self.log.info("Very short block mining time - The difficulty of mining a new block will be increased")
+            return self.difficulty + 1
+        elif(abs(block.timestamp - parent_block.timestamp) > self.mean_block_creation_time - 5):
+            self.log.info("Very long block mining time - The difficulty of mining a new block will be decreased")
+            return self.difficulty - 1
+
+        return self.difficulty
+
 
 
     def event_presentation(self, data: dict, sock: socket):
@@ -296,6 +302,7 @@ class Master:
                 return
         if validated and self.chain.find_block_by_hash(block._hash) is None:
             # Insertion
+            self.difficulty = self.calculate_difficulty(self.chain.last_block(), block)
             self.chain.insert_block(block)
             for tx in block.transactions.values():
                 self.mempool.remove_transaction(tx._hash)
