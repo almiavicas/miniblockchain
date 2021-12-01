@@ -61,10 +61,7 @@ def leer(d):
                  'nodo7', 'nodo8', 'nodo9', 'nodo10', 'nodo11',
                  'nodo12', 'nodo13', 'nodo14', 'nodo15', 'nodo16',
                  'nodo17', 'nodo18', 'nodo19' , 'nodo20')
-
-    fechaI = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    fechaF = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    
+                 
     # obtiene entradas de del log
 
     logs = OrderedDict()
@@ -72,7 +69,9 @@ def leer(d):
         parse_log_file(d + nodo + '.log', logs, nodo)
 
     logs = OrderedDict(sorted(logs.items()))
-    print(logs.keys())
+    els = list(logs.items())
+    fechaI = els[0][0].strftime("%Y/%m/%d %H:%M:%S")
+    fechaF = els[-1][0].strftime("%Y/%m/%d %H:%M:%S")
 
     entradas = [ ]
     event_logs = [ ]
