@@ -116,7 +116,7 @@ class Block():
 
 
     def find_tx_by_hash(self, tx_hash: str) -> Transaction:
-        pass
+        return self.transactions.get(tx_hash, None)
 
 
     def to_dict(self):

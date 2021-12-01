@@ -29,7 +29,6 @@ class Miner:
             tx.timestamp = mining_timestamp
             for utxo in tx.output:
                 utxo.block_hash = block._hash
-                utxo.timestamp = mining_timestamp
         data = {
             "block": block.to_dict(),
         }

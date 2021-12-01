@@ -10,8 +10,10 @@ class Chain():
         self.blockchain = OrderedDict()
 
     def find_block_by_height(self, height: int) -> Block:
-        block_key = list(self.blockchain.keys())[0]
-        return deepcopy(self.blockchain[block_key])
+        if len(self) < height + 1:
+            return None
+        block = list(self.blockchain.values())[height]
+        return deepcopy(block)
 
     def find_block_by_hash(self, _hash: str) -> Block:
         return deepcopy(self.blockchain.get(_hash, None))

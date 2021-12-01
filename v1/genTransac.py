@@ -20,6 +20,8 @@ from execution.semantic.unit_value import UnitValue
 from execution.semantic.block import Block
 from execution.semantic.transaction import Transaction
 from utils.block_explorer import explore_by_height
+from utils.transaction_explorer import explore_by_hash
+from utils.wallet import WalletList
 
 class TransactionGenerator:
 
@@ -41,7 +43,8 @@ class TransactionGenerator:
         self.max_output = max_output
         self.nodes_config = nodes_config
         self.fingerprints = fingerprints
-        self.wallets = None
+        self.wallets = WalletList()
+        self.next_block = 0
         self.gpg = gpg
         self.sock = sock = socket(AF_INET, SOCK_DGRAM)
         basicConfig(level=INFO, format=self.LOG_FORMAT)
@@ -55,23 +58,54 @@ class TransactionGenerator:
             tx = self.generate_transaction(sender)
             receiver_node = choice(list(self.nodes_config.keys()))
             self.log.info("Sending transaction from %s to %s", sender, receiver_node)
-            fingerprint = self.fingerprints[sender]
-            self.log.info("Signing with fingerprint: %s", fingerprint)
-            signed_data = self.gpg.sign(str(tx), keyid=fingerprint)
-            request_body = {
-                "fingerprint": self.fingerprints[sender],
-                "signature": str(signed_data),
-            }
-            event = Event.NEW_TRANSACTION.value
-            node_port = self.nodes_config[receiver_node]
-            send_message_to_node(request_body, event, receiver_node, node_port, self.sock, self.gpg)
+            self.send_transaction(sender, tx, receiver_node)
             response = self.sock.recv(BUFSIZE)
             response_json = loads(response.decode())
             self.log_event(response_json["event"], receiver_node)
             status = response_json["data"]["status"]
             self.log.info("Transaction accepted: %s", status)
+            self.log.info("Requesting latest block")
+            self.request_and_update_latest_block(receiver_node)
             self.log.info("Sleeping for %d seconds", 60 // self.frequency)
             sleep(60 // self.frequency)
+
+
+    def send_transaction(self, sender: str, tx: Transaction, node_name: str):
+        fingerprint = self.fingerprints[sender]
+        signed_tx = self.gpg.sign(str(tx), keyid=fingerprint)
+        node_port = self.nodes_config[node_name]
+        data = {
+            "fingerprint": fingerprint,
+            "signature": str(signed_tx),
+        }
+        event = Event.NEW_TRANSACTION.value
+        send_message_to_node(data, event, node_name, node_port, self.sock, self.gpg)
+
+
+    def request_block(self, block_height: int, node_name: str) -> Block:
+        node_port = self.nodes_config[node_name]
+        return explore_by_height(block_height, node_name, node_port, self.sock, self.gpg)
+
+
+    def request_and_update_latest_block(self, node_name: str):
+        block = self.request_block(self.next_block, node_name)
+        if block is not None:
+            self.log.info("Got block %d. Updating wallets", self.next_block)
+            self.next_block += 1
+            self.update_wallets(block)
+        else:
+            self.log.info("No new block added")
+
+
+    def update_wallets(self, block: Block):
+        for tx in block.transactions.values():
+            sender_fingerprint_hash = tx._input[0].fingerprint_hash
+            self.wallets.add_tx_to_wallet(sender_fingerprint_hash, tx)
+            for fingerprint in self.fingerprints.values():
+                fingerprint_hash = sha256(fingerprint.encode()).hexdigest()
+                for uv in tx.output:
+                    if uv.fingerprint_hash == fingerprint_hash:
+                        self.wallets.add_unit_value_to_wallet(fingerprint_hash, uv)
 
 
     def log_event(self, event: int, sender: str):
@@ -84,18 +118,27 @@ class TransactionGenerator:
 
 
     def init_wallets(self):
-        utxos = self.load_genesis_block_outputs()
-        self.log.info("Got %d utxos", len(utxos))
-        self.wallets = {sha256(fp.encode()).hexdigest(): [] for fp in self.fingerprints.values()}
-        for uv in utxos:
-            self.wallets[uv.fingerprint_hash].append(uv)
-
-
-    def load_genesis_block_outputs(self) -> List[UnitValue]:
         receiver_node = choice(list(self.nodes_config.keys()))
+        utxos = self.load_genesis_block_outputs(receiver_node)
+        self.log.info("Got %d utxos", len(utxos))
+        for fingerprint in self.fingerprints.values():
+            self.wallets.create_empty_wallet(sha256(fingerprint.encode()).hexdigest())
+        for uv in utxos:
+            wallet = self.wallets.find_wallet_by_fingerprint_hash(uv.fingerprint_hash)
+            wallet.add_unit_value(uv)
+        block = self.request_block(self.next_block, receiver_node)
+        while block is not None:
+            self.next_block += 1
+            self.update_wallets(block)
+            block = self.request_block(self.next_block, receiver_node)
+        
+
+
+    def load_genesis_block_outputs(self, receiver_node: str) -> List[UnitValue]:
         self.log.info("Asking for genesis block to %s", receiver_node)
-        node_port = self.nodes_config[receiver_node]
-        block = explore_by_height(0, receiver_node, node_port, self.sock, self.gpg)
+        self.log.info(self.next_block)
+        block = self.request_block(self.next_block, receiver_node)
+        self.next_block += 1
         utxos = []
         for tx in block.transactions.values():
             utxos = utxos + tx.output
@@ -103,7 +146,9 @@ class TransactionGenerator:
 
 
     def generate_transaction(self, sender: str) -> Transaction:
-        utxos = self.get_utxos(self.fingerprints[sender])
+        sender_fingerprint_hash = sha256(self.fingerprints[sender].encode()).hexdigest()
+        sender_wallet = self.wallets.find_wallet_by_fingerprint_hash(sender_fingerprint_hash)
+        utxos = sender_wallet.get_utxos()
         input_utxo_number = randrange(min(len(utxos), self.min_input), min(len(utxos), self.max_input) + 1)
         tx_input_utxos = sample(utxos, input_utxo_number)
         tx_input_amount = sum([utxo.amount for utxo in tx_input_utxos])

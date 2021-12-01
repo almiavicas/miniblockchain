@@ -1,4 +1,6 @@
 from typing import Optional
+from random import randint
+from hashlib import sha256
 from json import dumps
 
 class UnitValue:
@@ -33,10 +35,17 @@ class UnitValue:
         self.timestamp = timestamp
         self.block_hash = block_hash
         self.spent = spent
+        self._hash = self.uv_hash()
+
+
+    def uv_hash(self) -> str:
+        uv_unique_str = f"""
+        {str(self.amount)}{self.fingerprint_hash}{str(self.timestamp)}{str(randint(0, 2 ** 128))}
+        """
+        return sha256(uv_unique_str.encode()).hexdigest()
 
 
     def __eq__(self, o):
-        # TODO: Define what equality means between two UnitValues
         return (
             self.tx_hash == o.tx_hash and
             self.amount == o.amount and
@@ -48,6 +57,7 @@ class UnitValue:
 
     def to_dict(self):
         return {
+            "hash": self._hash,
             "tx_hash": self.tx_hash,
             "amount": self.amount,
             "fingerprint_hash": self.fingerprint_hash,
@@ -59,3 +69,14 @@ class UnitValue:
 
     def __str__(self):
         return dumps(self.to_dict()).replace("\\", "")
+
+
+def create_utxo_from_json(data: dict) -> UnitValue:
+    return UnitValue(
+        data["amount"],
+        data["fingerprint_hash"],
+        data["timestamp"],
+        data.get("tx_hash", None),
+        data.get("block_hash", None),
+        data.get("spent", False),
+    )

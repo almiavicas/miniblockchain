@@ -2,7 +2,7 @@ from typing import List, Optional
 from hashlib import sha256
 from json import dumps
 from time import time
-from .unit_value import UnitValue
+from .unit_value import UnitValue, create_utxo_from_json
 
 class Transaction:
 
@@ -74,8 +74,8 @@ class Transaction:
 
 def create_tx_from_json(data: dict) -> Transaction:
     return Transaction(
-        _input=list(map(lambda unit_value: UnitValue(**unit_value), data["inputs"])),
-        output=list(map(lambda unit_value: UnitValue(**unit_value), data["outputs"])),
+        _input=list(map(lambda unit_value: create_utxo_from_json(unit_value), data["inputs"])),
+        output=list(map(lambda unit_value: create_utxo_from_json(unit_value), data["outputs"])),
         timestamp=data.get("timestamp", None),
         block_hash=data.get("block_hash", None),
         _hash=data.get("hash", None),

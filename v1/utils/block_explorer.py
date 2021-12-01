@@ -11,8 +11,7 @@ def explore(data: dict, height: int, name: str, port: int, sock: socket, gpg: GP
     response = sock.recv(BUFSIZE)
     response_json = loads(response.decode())
     data = response_json["data"]
-    block_json = data["block"]
-    return create_block_from_json(data["block"])
+    return create_block_from_json(data["block"]) if data["block"] is not None else None
 
 
 def explore_by_height(height: int, node_name: str, node_port: int, sock: socket, gpg: GPG) -> Block:

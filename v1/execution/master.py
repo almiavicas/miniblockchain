@@ -303,6 +303,7 @@ class Master:
         if validated and self.chain.find_block_by_hash(block._hash) is None:
             # Insertion
             self.difficulty = self.calculate_difficulty(self.chain.last_block(), block)
+            self.log.info("Adding block %d", block.index)
             self.chain.insert_block(block)
             for tx in block.transactions.values():
                 self.mempool.remove_transaction(tx._hash)
@@ -331,7 +332,7 @@ class Master:
         response = {
             "event": Event.BLOCK_EXPLORE_ACK.value,
             "data": {
-                "block": block.to_dict(),
+                "block": block.to_dict() if block is not None else block,
             },
         }
         sock.sendto(dumps(response).replace("\\", "").encode(), address)
