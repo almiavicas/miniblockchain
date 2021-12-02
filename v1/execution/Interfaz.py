@@ -9,7 +9,6 @@ from tkinter import ttk
 import math
 from datetime import datetime
 from utils import LogService, Log
-from collections import OrderedDict
     
 
 class Application:
