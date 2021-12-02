@@ -82,10 +82,10 @@ def leer(d):
     # obtiene nombre nodos
     global nodeNames, fechaI, fechaF, entradas, event_logs
 
-    nodeNames = ('nodo1', 'nodo2', 'nodo3', 'nodo4', 'nodo5', 'nodo6',
-                 'nodo7', 'nodo8', 'nodo9', 'nodo10', 'nodo11',
-                 'nodo12', 'nodo13', 'nodo14', 'nodo15', 'nodo16',
-                 'nodo17', 'nodo18', 'nodo19' , 'nodo20')
+    nodeNames = []
+
+    for i in range(num_nodes):
+        nodeNames.append('nodo' + str(i+1))
 
     # obtiene entradas de del log
 
@@ -227,6 +227,7 @@ class Application:
 
 
 nodeNames = ()
+num_nodes = int(sys.argv[1])
 
 d = sys.argv[1]
 
