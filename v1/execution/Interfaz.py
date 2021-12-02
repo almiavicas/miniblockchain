@@ -57,8 +57,9 @@ class Application:
         value_lb = Label(top_frame, text="Valor (opc): ")
         value_lb.grid(row=1, column=0)
 
-        tx_block_entry = Entry(top_frame, background="red")
-        tx_block_entry.grid(row=1, column=1)
+        self.tx_block_entry = ttk.Entry(top_frame, background="red")
+        self.tx_block_entry.grid(row=1, column=1)
+        self.tx_block_entry.bind("<Return>", self.data_type_change)
 
         ts_start_lb = Label(top_frame, text="Tiempo Inicio: ")
         ts_start_lb.grid(row=0, column=3)
@@ -136,9 +137,9 @@ class Application:
             self.logs_iterator = None
         else:
             if data_type == "Bloques":
-                log_files = self.logs_service.find_logs_by_op_type("block")
+                log_files = self.logs_service.find_logs_by_op_type("block", self.tx_block_entry.get())
             elif data_type == "Transacciones":
-                log_files = self.logs_service.find_logs_by_op_type("transaction")
+                log_files = self.logs_service.find_logs_by_op_type("transaction", self.tx_block_entry.get())
             composed_logs: List[Log] = []
             for logs in log_files.values():
                 composed_logs += logs
@@ -161,7 +162,7 @@ class Application:
             # Reset to default
             self.logs_iterator = None
         else:
-            log_files = self.logs_service.find_logs_by_op(event_type)
+            log_files = self.logs_service.find_logs_by_op(event_type, self.tx_block_entry.get())
             composed_logs: List[Log] = []
             for logs in log_files.values():
                 composed_logs += logs

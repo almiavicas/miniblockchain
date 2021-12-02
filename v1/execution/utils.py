@@ -124,7 +124,7 @@ def parse_log_file(filename: str) -> List[Log]:
     logs = []
     with open(filename, encoding="utf-8") as _file:
         for line in _file.readlines():
-            time, log_event = line.split('|')
+            time, log_event = line.split('|', 1)
             name, message = log_event.strip().split(':', 1)
             log = Log(time.strip(), name.strip(), message.strip())
             logs.append(log)
@@ -137,11 +137,15 @@ class LogFile:
         self.logs = parse_log_file(filename)
 
 
-    def find_logs_by_substr(self, substrs: List[str]) -> List[Log]:
+    def find_logs_by_substr(self, substrs: List[str], hash = None) -> List[Log]:
         logs: List[Log] = []
         for log in self.logs:
             if any(substr in log.message for substr in substrs):
-                logs.append(log)
+                if not (hash is None):
+                    if hash in log.message:
+                        logs.append(log)
+                else:
+                    logs.append(log)
         return logs
 
 
@@ -214,7 +218,7 @@ class LogService:
         return log_files
 
     
-    def find_logs_by_op_type(self, op_type: str) -> Dict[str, List[Log]]:
+    def find_logs_by_op_type(self, op_type: str, hash: str = None) -> Dict[str, List[Log]]:
         log_files: Dict[str, List[Log]] = {}
         event_strs = None
         if op_type == "all":
@@ -224,17 +228,25 @@ class LogService:
         elif op_type == "block":
             event_strs = self.BLOCK_EVENTS
         for log_file in self.log_files.values():
-            logs = log_file.find_logs_by_substr(event_strs)
-            log_files[log_file.filename] = logs
+            if len(hash) > 0:
+                logs = log_file.find_logs_by_substr(event_strs, hash)
+                log_files[log_file.filename] = logs
+            elif len(hash) == 0:
+                logs = log_file.find_logs_by_substr(event_strs)
+                log_files[log_file.filename] = logs
         return log_files
 
     
-    def find_logs_by_op(self, op: str) -> Dict[str, List[Log]]:
+    def find_logs_by_op(self, op: str, hash: str = None) -> Dict[str, List[Log]]:
         log_files: Dict[str, List[Log]] = {}
         event_strs = [op]
         for log_file in self.log_files.values():
-            logs = log_file.find_logs_by_substr(event_strs)
-            log_files[log_file.filename] = logs
+            if len(hash) > 0:
+                logs = log_file.find_logs_by_substr(event_strs, hash)
+                log_files[log_file.filename] = logs
+            elif len(hash) == 0:
+                logs = log_file.find_logs_by_substr(event_strs)
+                log_files[log_file.filename] = logs
         return log_files
 
 
