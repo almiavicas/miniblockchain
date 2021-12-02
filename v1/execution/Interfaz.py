@@ -8,6 +8,7 @@ from tkinter import *
 from tkinter import ttk
 import math
 from time import sleep
+from datetime import datetime
 from utils import (
     create_dir,
     parse_network_file,
@@ -132,12 +133,25 @@ class Application:
         model_lb.grid(row=0, column=0)
 
         data_type_values = ("Todos", "Bloques", "Transacciones")
-        data_type_sv = StringVar()
-        data_type_cb = ttk.Combobox(top_frame, textvariable=data_type_sv)
-        data_type_cb["values"] = data_type_values
-        data_type_cb.current(0)
-        data_type_cb["state"] = "readonly"
-        data_type_cb.grid(row=0, column=1)
+        self.data_type_sv = StringVar()
+        self.data_type_cb = ttk.Combobox(top_frame, textvariable=self.data_type_sv)
+        self.data_type_cb.bind("<<ComboboxSelected>>", self.data_type_change)
+        self.data_type_cb["values"] = data_type_values
+        self.data_type_cb.current(0)
+        self._data_type = self.data_type_sv.get()
+        self.data_type_cb["state"] = "readonly"
+        self.data_type_cb.grid(row=0, column=1)
+
+        event_type_values = tuple(self.logs_service.ALL_EVENTS)
+        event_type_values = ("Todos",) + event_type_values
+        self.event_type_sv = StringVar()
+        self.event_type_cb = ttk.Combobox(top_frame, textvariable=self.event_type_sv)
+        self.event_type_cb.bind("<<ComboboxSelected>>", self.event_type_change)
+        self.event_type_cb["values"] = event_type_values
+        self.event_type_cb.current(0)
+        self._event_type = self.event_type_sv.get()
+        self.event_type_cb["state"] = "readonly"
+        self.event_type_cb.grid(row=0, column=2)
 
         value_lb = Label(top_frame, text="Valor (opc): ")
         value_lb.grid(row=1, column=0)
@@ -150,12 +164,16 @@ class Application:
         ts_end_lb = Label(top_frame, text="Tiempo Final: ")
         ts_end_lb.grid(row=1, column=3)
 
-        ts_start_sv = StringVar()
-        ts_start_entry = Entry(top_frame, background="pink", textvariable=ts_start_sv)
+        self.ts_start_sv = StringVar()
+        self.ts_start_sv.set(str(self.logs_service.log_start))
+        self._ts_start_value = self.ts_start_sv.get()
+        ts_start_entry = Entry(top_frame, background="pink", textvariable=self.ts_start_sv)
         ts_start_entry.grid(row=0, column=4)
 
-        ts_end_sv = StringVar()
-        ts_end_entry = Entry(top_frame, background="pink", textvariable=ts_end_sv)
+        self.ts_end_sv = StringVar()
+        self.ts_end_sv.set(str(self.logs_service.log_end))
+        self._ts_end_value = self.ts_end_sv.get()
+        ts_end_entry = Entry(top_frame, background="pink", textvariable=self.ts_end_sv)
         ts_end_entry.grid(row=1, column=4)
 
         next_btn = Button(top_frame, text="Next", bg="cyan", command=self.next_logs)
@@ -206,27 +224,94 @@ class Application:
         return self.root
 
 
+    def data_type_change(self, virtual_event):
+        """Set the logs iterator upon data type change"""
+        data_type = self.data_type_sv.get()
+        if self._data_type == data_type:
+            return
+        self._data_type = data_type
+        if data_type == "Todos":
+            # Reset to default
+            self.logs_iterator = None
+        else:
+            if data_type == "Bloques":
+                log_files = self.logs_service.find_logs_by_op_type("block")
+            elif data_type == "Transacciones":
+                log_files = self.logs_service.find_logs_by_op_type("transaction")
+            composed_logs: List[Log] = []
+            for logs in log_files.values():
+                composed_logs += logs
+            self.logs_iterator = iter(sorted(composed_logs))
+            self.last_log = next(self.logs_iterator, None)
+        self.reset_log_entries()
+        self.event_type_cb.current(0)
+        self.ts_end_sv.set(str(self.logs_service.log_end))
+        self._ts_end_value = self.ts_end_sv.get()
+        self.ts_start_sv.set(str(self.logs_service.log_start))
+        self._ts_start_value = self.ts_start_sv.get()
+
+
+    def event_type_change(self, virtual_event):
+        event_type = self.event_type_sv.get()
+        if self._event_type == event_type:
+            return
+        self._event_type = event_type
+        if event_type == "Todos":
+            # Reset to default
+            self.logs_iterator = None
+        else:
+            log_files = self.logs_service.find_logs_by_op(event_type)
+            composed_logs: List[Log] = []
+            for logs in log_files.values():
+                composed_logs += logs
+            self.logs_iterator = iter(sorted(composed_logs))
+            self.last_log = next(self.logs_iterator, None)
+        self.reset_log_entries()
+        self.data_type_cb.current(0)
+        self.ts_end_sv.set(str(self.logs_service.log_end))
+        self._ts_end_value = self.ts_end_sv.get()
+        self.ts_start_sv.set(str(self.logs_service.log_start))
+        self._ts_start_value = self.ts_start_sv.get()
+
+
+    def reset_log_entries(self):
+        for entry in self.node_entries:
+            entry.delete("1.0", "end")
+
+
+    def check_timestamp_entries(self):
+        if self._ts_start_value != self.ts_start_sv.get() or self._ts_end_value != self.ts_end_sv.get():
+            self._ts_start_value = self.ts_start_sv.get()
+            self._ts_end_value = self.ts_end_sv.get()
+            start_date = datetime.strptime(self._ts_start_value, "%Y-%m-%d %H:%M:%S.%f")
+            end_date = datetime.strptime(self._ts_end_value, "%Y-%m-%d %H:%M:%S.%f")
+            log_files = self.logs_service.find_logs_by_timestamp_range(start_date, end_date)
+            composed_logs: List[Log] = []
+            for logs in log_files.values():
+                composed_logs += logs
+            self.logs_iterator = iter(sorted(composed_logs))
+            self.last_log = next(self.logs_iterator, None)
+            self.event_type_cb.current(0)
+            self.data_type_cb.current(0)
+            self.reset_log_entries()
+
+
     def next_logs(self):
+        self.check_timestamp_entries()
         if self.logs_iterator is None:
             self.logs_iterator = iter(self.logs_service)
             self.last_log = next(self.logs_iterator, None)
         next_log = next(self.logs_iterator, None)
         while self.last_log is not None:
             for i, node_sv in enumerate(self.node_svs):
-                if node_sv.get() == next_log.name:
-                    self.node_entries[i].insert(END, str(next_log) + "\n")
-            next_log = next(self.logs_iterator, None)
+                if node_sv.get() == self.last_log.name:
+                    self.node_entries[i].insert(END, str(self.last_log) + "\n")
             if next_log is None or self.last_log.dt != next_log.dt:
                 break
-            else:
-                self.last_log = next_log
+            self.last_log = next_log
+            next_log = next(self.logs_iterator, None)
         self.last_log = next_log
 
-
-        
-
-
-nodeNames = ()
 
 d = sys.argv[1]
 

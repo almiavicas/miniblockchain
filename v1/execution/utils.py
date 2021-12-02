@@ -139,20 +139,60 @@ class LogFile:
         self.logs = parse_log_file(filename)
 
 
-    def find_logs_by_prefix(self, prefixes: List[str]) -> List[Log]:
+    def find_logs_by_substr(self, substrs: List[str]) -> List[Log]:
         logs: List[Log] = []
         for log in self.logs:
-            if any(log.message.startswith(prefix) for prefix in prefixes):
+            if any(substr in log.message for substr in substrs):
                 logs.append(log)
         return logs
 
 
 class LogService:
+
+    ALL_EVENTS = [
+        str(Event.PRESENTATION),
+        str(Event.PRESENTATION_ACK),
+        str(Event.NEW_TRANSACTION),
+        str(Event.NEW_TRANSACTION_ACK),
+        str(Event.TRANSACTION),
+        str(Event.TRANSACTION_ACK),
+        str(Event.BLOCK),
+        str(Event.BLOCK_ACK),
+        str(Event.BLOCK_EXPLORE),
+        str(Event.BLOCK_EXPLORE_ACK),
+        str(Event.TRANSACTION_EXPLORE),
+        str(Event.TRANSACTION_EXPLORE_ACK),
+    ]
+    TRANSACTION_EVENTS = [
+        str(Event.NEW_TRANSACTION),
+        str(Event.NEW_TRANSACTION_ACK),
+        str(Event.TRANSACTION),
+        str(Event.TRANSACTION_ACK),
+        str(Event.TRANSACTION_EXPLORE),
+        str(Event.TRANSACTION_EXPLORE_ACK),
+    ]
+    BLOCK_EVENTS = [
+        str(Event.BLOCK),
+        str(Event.BLOCK_ACK),
+        str(Event.BLOCK_EXPLORE),
+        str(Event.BLOCK_EXPLORE_ACK),
+    ]
+
+
     def __init__(self, logs_dir: str):
         self.log_files: Dict[str, LogFile] = {}
+        self.log_start: datetime = None
+        self.log_end: datetime = None
         for filename in os.listdir(logs_dir):
             log_file = LogFile(f"{logs_dir}/{filename}")
+            first_log_dt = log_file.logs[0].dt
+            if self.log_start is None or first_log_dt < self.log_start:
+                self.log_start = first_log_dt
+            last_log_dt = log_file.logs[-1].dt
+            if self.log_end is None or last_log_dt > self.log_end:
+                self.log_end = last_log_dt
             self.log_files[log_file.filename] = log_file
+        
 
 
     def compose_logs(self) -> List[Log]:
@@ -170,7 +210,7 @@ class LogService:
             while start_index < len(log_file.logs) and log_file.logs[start_index].dt < start:
                 start_index += 1
             end_index = len(log_file.logs) - 1
-            while end_index > 0 and log_file.logs[end_index] > end:
+            while end_index > 0 and log_file.logs[end_index].dt > end:
                 end_index -= 1
             log_files[log_file.filename] = log_file.logs[start_index:end_index]
         return log_files
@@ -178,49 +218,24 @@ class LogService:
     
     def find_logs_by_op_type(self, op_type: str) -> Dict[str, List[Log]]:
         log_files: Dict[str, List[Log]] = {}
-        event_prefixes = None
+        event_strs = None
         if op_type == "all":
-            event_prefixes = [
-                str(Event.PRESENTATION),
-                str(Event.PRESENTATION_ACK),
-                str(Event.NEW_TRANSACTION),
-                str(Event.NEW_TRANSACTION_ACK),
-                str(Event.TRANSACTION),
-                str(Event.TRANSACTION_ACK),
-                str(Event.BLOCK),
-                str(Event.BLOCK_ACK),
-                str(Event.BLOCK_EXPLORE),
-                str(Event.BLOCK_EXPLORE_ACK),
-                str(Event.TRANSACTION_EXPLORE),
-                str(Event.TRANSACTION_EXPLORE_ACK),
-            ]
+            event_strs = self.ALL_EVENTS
         elif op_type == "transaction":
-            event_prefixes = [
-                str(Event.NEW_TRANSACTION),
-                str(Event.NEW_TRANSACTION_ACK),
-                str(Event.TRANSACTION),
-                str(Event.TRANSACTION_ACK),
-                str(Event.TRANSACTION_EXPLORE),
-                str(Event.TRANSACTION_EXPLORE_ACK),
-            ]
+            event_strs = self.TRANSACTION_EVENTS
         elif op_type == "block":
-            event_prefixes = [
-                str(Event.BLOCK),
-                str(Event.BLOCK_ACK),
-                str(Event.BLOCK_EXPLORE),
-                str(Event.BLOCK_EXPLORE_ACK),
-            ]
+            event_strs = self.BLOCK_EVENTS
         for log_file in self.log_files.values():
-            logs = log_file.find_logs_by_prefix(event_prefixes)
+            logs = log_file.find_logs_by_substr(event_strs)
             log_files[log_file.filename] = logs
         return log_files
 
     
     def find_logs_by_op(self, op: str) -> Dict[str, List[Log]]:
         log_files: Dict[str, List[Log]] = {}
-        event_prefixes = [op]
+        event_strs = [op]
         for log_file in self.log_files.values():
-            logs = log_file.find_logs_by_prefix(event_prefix)
+            logs = log_file.find_logs_by_substr(event_strs)
             log_files[log_file.filename] = logs
         return log_files
 
