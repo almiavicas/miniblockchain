@@ -101,7 +101,7 @@ class Master:
         transactions = OrderedDict({ transaction._hash: transaction })
         block = Block("0x00", transactions, 0, 0, empty_string_hash)
         self.chain.insert_block(block)
-        self.log.info("Added origin block")
+        self.log.info("Added origin block | %s", block._hash)
 
 
     def handle_message(self, message: bytes, address: tuple, sock: socket):
@@ -178,10 +178,10 @@ class Master:
 
     def calculate_difficulty(self, parent_block, block) -> int:
         if(abs(block.timestamp - parent_block.timestamp) < (self.mean_block_creation_time * 60) + 5):
-            self.log.info("Very short block mining time - The difficulty of mining a new block will be increased")
+            self.log.info("Very short block mining time - The difficulty of mining a new block will be increased | %s", block._hash)
             return self.difficulty + 1
         elif(abs(block.timestamp - parent_block.timestamp) > (self.mean_block_creation_time * 60) - 5):
-            self.log.info("Very long block mining time - The difficulty of mining a new block will be decreased")
+            self.log.info("Very long block mining time - The difficulty of mining a new block will be decreased| %s", block._hash)
             return self.difficulty - 1
 
         return self.difficulty
@@ -224,7 +224,7 @@ class Master:
             sock.sendto(dumps(response).encode(), address)
         if tx is not None:
             self.mempool.add_transaction(tx)
-            self.log.info("Transactions in mempool: %d", len(self.mempool))
+            self.log.info("Transactions in mempool: %d | %s", len(self.mempool), tx.hash)
             propagation_data = {
                 **data,
                 "transaction": tx.to_dict(),
@@ -261,7 +261,7 @@ class Master:
         # Insertion
         if validated and self.mempool.find_transaction(tx._hash) is None:
             self.mempool.add_transaction(tx)
-            self.log.info("Transactions in mempool: %d", len(self.mempool))
+            self.log.info("Transactions in mempool: %d | %s", len(self.mempool), tx.hash)
             # Propagation
             for n in self.neighbors.values():
                 if n.is_active and n.port != sender_port:
@@ -285,7 +285,7 @@ class Master:
                 "status": "Si",
             }
         except Exception as e:
-            self.log.warning("Declined block: %s", str(e))
+            self.log.warning("Declined block: %s | %s", str(e), block._hash)
             response = {
                 "status": "No",
                 "message": str(e),
@@ -303,11 +303,11 @@ class Master:
         if validated and self.chain.find_block_by_hash(block._hash) is None:
             # Insertion
             self.difficulty = self.calculate_difficulty(self.chain.last_block(), block)
-            self.log.info("Adding block %d", block.index)
+            self.log.info("Adding block %d | %s", block.index, block._hash)
             self.chain.insert_block(block)
             for tx in block.transactions.values():
                 self.mempool.remove_transaction(tx._hash)
-            self.log.info("Removed %d transactions from mempool", len(block.transactions.values()))
+            self.log.info("Removed %d transactions from mempool | %s", len(block.transactions.values()), block._hash)
             self.destroy_miner()
             self.miner = self.create_miner()
             self.miner.start()
