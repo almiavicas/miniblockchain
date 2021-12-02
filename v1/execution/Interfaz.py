@@ -7,109 +7,11 @@
 from tkinter import *
 from tkinter import ttk
 import math
-from time import sleep
 from datetime import datetime
-from utils import (
-    create_dir,
-    parse_network_file,
-    get_gpg,
-    get_fingerprints,
-    parse_config_file,
-    Event,
-    LOCALHOST,
-    BUFSIZE,
-    LogService,
-    Log,
-)
+from utils import LogService, Log
 from collections import OrderedDict
-
-MaxCombos= 1
-pos = 0
-
-def NextEntry():
-    global pos
     
-    if (pos == 0):
-        print("Dato: ", tipoDato_cb.get())
-        print("Transac/block", entry_transaccion_bloque.get())
 
-        print("Time Ini", tsi.get())
-        print("Time Fin", tsf.get())
-
-        print("Acciones: ", tipoAccion_cb.get())
-        print("------\n\n")
-
-    print("Procesando log: " + entradas[pos])
-
-    print(node_cbs)
-
-    for (i, j) in node_cbs:
-        if i.get() == entradas[pos] or len(node_cbs) == 1:
-            j.config(state=NORMAL)
-
-            if(tipoAccion_cb.get() == 'Presentacion'):
-                while pos <= len(event_logs):
-                    if "PRESENTATION" in event_logs[pos] or "PRESENTATION_ACK" in event_logs[pos]:
-                        j.insert(END, event_logs[pos]+"\n\n")
-                        break
-                    pos = pos + 1
-            elif(tipoAccion_cb.get() == 'Transacción Nueva'):
-                while pos <= len(event_logs):
-                    if "NEW_TRANSACTION" in event_logs[pos] or "NEW_TRANSACTION_ACK" in event_logs[pos]:
-                        j.insert(END, event_logs[pos]+"\n\n")
-                        break
-                    pos = pos + 1
-            elif(tipoAccion_cb.get() == 'Transacción Propaga'):
-                while pos <= len(event_logs):
-                    if "TRANSACTION" in event_logs[pos] or "TRANSACTION_ACK" in event_logs[pos]:
-                        j.insert(END, event_logs[pos]+"\n\n")
-                        break
-                    post = post + 1
-            elif(tipoAccion_cb.get() == 'Bloque Propaga'):
-                while pos <= len(event_logs):
-                    if "BLOCK" in event_logs[pos] or "BLOCK_ACK" in event_logs[pos]:
-                        j.insert(END, event_logs[pos]+"\n\n")
-                        break
-                    pos = pos + 1
-            else:
-                j.insert(END, event_logs[pos]+"\n\n")
-                pos = pos + 1
-            # j.insert(END,"Acc:"+str(pos)+":\n " +entradas[pos]+"\n\n")
-            j.config(state=DISABLED)
-
-# lee los archivos y saca la informacion
-# ESTO ES UN STUB, AQUI DEBE AGREGAR CODIGO APROPIADO
-def leer(d):
-    # obtiene nombre nodos
-    global nodeNames, fechaI, fechaF, entradas, event_logs
-
-    nodeNames = ('nodo1', 'nodo2', 'nodo3', 'nodo4', 'nodo5', 'nodo6',
-                 'nodo7', 'nodo8', 'nodo9', 'nodo10', 'nodo11',
-                 'nodo12', 'nodo13', 'nodo14', 'nodo15', 'nodo16',
-                 'nodo17', 'nodo18', 'nodo19' , 'nodo20')
-
-    # obtiene entradas de del log
-
-    logs = OrderedDict()
-    for nodo in nodeNames:
-        parse_log_file(d + nodo + '.log', logs, nodo)
-
-    logs = OrderedDict(sorted(logs.items()))
-    els = list(logs.items())
-    fechaI = els[0][0].strftime("%Y/%m/%d %H:%M:%S")
-    fechaF = els[-1][0].strftime("%Y/%m/%d %H:%M:%S")
-
-    entradas = [ ]
-    event_logs = [ ]
-
-    for i in logs:
-        entradas.append((logs[i]["nodo"]))
-        event_logs.append((logs[i]["log_event"]))
-        
-def getNodeNames():
-    return nodeNames
-
-    
 class Application:
     def __init__(self, root: Tk, logs_dir):
         self.root = root
