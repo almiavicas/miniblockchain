@@ -65,18 +65,6 @@ def parse_config_file(filename: str) -> dict:
             config[key[:-1].lower()] = int(value)
     return config
 
-def parse_log_file(filename: str, logs: OrderedDict, nodo_name: str) -> dict:
-    config = {}
-    with open(filename, encoding="utf-8") as _file:
-        for line in _file.readlines():
-            time, log_event = line.split('|')
-            timeParser = datetime.strptime(time.strip(), "%Y-%m-%d %H:%M:%S,%f")
-            nodo, log = log_event.strip().split(':', 1)
-            logs[timeParser] = {
-                'nodo': nodo,
-                'log_event': log
-            }
-    return config
 
 def get_gpg() -> GPG:
     homedir = os.environ.get("HOME", None)
@@ -113,3 +101,136 @@ def send_message_to_node(data: dict, event: int, name: str, port: int, sock: soc
     if not encrypted_message.ok:
         raise Exception("Encryption failed with status %s" % encrypted_message.status)
     sock.sendto(str(encrypted_message).encode(), (LOCALHOST, port))
+
+
+class Log:
+    def __init__(self, dt_str: str, name: str, message: str):
+        self.dt_str = dt_str
+        self.dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S,%f")
+        self.name = name
+        self.message = message
+
+
+    def __lt__(self, o):
+        result = self.dt < o.dt
+        result = result or self.dt == o.dt and self.name < o.name
+        result = result or self.dt == o.dt and self.name == o.name and self.message < o.message
+        return result
+
+    
+    def __str__(self):
+        return f"{self.dt_str} | {self.name}: {self.message}"
+
+
+def parse_log_file(filename: str) -> List[Log]:
+    logs = []
+    with open(filename, encoding="utf-8") as _file:
+        for line in _file.readlines():
+            time, log_event = line.split('|')
+            name, message = log_event.strip().split(':', 1)
+            log = Log(time.strip(), name.strip(), message.strip())
+            logs.append(log)
+    return logs
+
+
+class LogFile:
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.logs = parse_log_file(filename)
+
+
+    def find_logs_by_prefix(self, prefixes: List[str]) -> List[Log]:
+        logs: List[Log] = []
+        for log in self.logs:
+            if any(log.message.startswith(prefix) for prefix in prefixes):
+                logs.append(log)
+        return logs
+
+
+class LogService:
+    def __init__(self, logs_dir: str):
+        self.log_files: Dict[str, LogFile] = {}
+        for filename in os.listdir(logs_dir):
+            log_file = LogFile(f"{logs_dir}/{filename}")
+            self.log_files[log_file.filename] = log_file
+
+
+    def compose_logs(self) -> List[Log]:
+        """Return a unique dict with the logs of every logfile."""
+        composed_logs: List[Log] = []
+        for log_file in self.log_files.values():
+            composed_logs += log_file.logs
+        return sorted(composed_logs)
+
+
+    def find_logs_by_timestamp_range(self, start: datetime, end: datetime) -> Dict[str, List[Log]]:
+        log_files: Dict[str, List[Log]] = {}
+        for log_file in self.log_files.values():
+            start_index = 0
+            while start_index < len(log_file.logs) and log_file.logs[start_index].dt < start:
+                start_index += 1
+            end_index = len(log_file.logs) - 1
+            while end_index > 0 and log_file.logs[end_index] > end:
+                end_index -= 1
+            log_files[log_file.filename] = log_file.logs[start_index:end_index]
+        return log_files
+
+    
+    def find_logs_by_op_type(self, op_type: str) -> Dict[str, List[Log]]:
+        log_files: Dict[str, List[Log]] = {}
+        event_prefixes = None
+        if op_type == "all":
+            event_prefixes = [
+                str(Event.PRESENTATION),
+                str(Event.PRESENTATION_ACK),
+                str(Event.NEW_TRANSACTION),
+                str(Event.NEW_TRANSACTION_ACK),
+                str(Event.TRANSACTION),
+                str(Event.TRANSACTION_ACK),
+                str(Event.BLOCK),
+                str(Event.BLOCK_ACK),
+                str(Event.BLOCK_EXPLORE),
+                str(Event.BLOCK_EXPLORE_ACK),
+                str(Event.TRANSACTION_EXPLORE),
+                str(Event.TRANSACTION_EXPLORE_ACK),
+            ]
+        elif op_type == "transaction":
+            event_prefixes = [
+                str(Event.NEW_TRANSACTION),
+                str(Event.NEW_TRANSACTION_ACK),
+                str(Event.TRANSACTION),
+                str(Event.TRANSACTION_ACK),
+                str(Event.TRANSACTION_EXPLORE),
+                str(Event.TRANSACTION_EXPLORE_ACK),
+            ]
+        elif op_type == "block":
+            event_prefixes = [
+                str(Event.BLOCK),
+                str(Event.BLOCK_ACK),
+                str(Event.BLOCK_EXPLORE),
+                str(Event.BLOCK_EXPLORE_ACK),
+            ]
+        for log_file in self.log_files.values():
+            logs = log_file.find_logs_by_prefix(event_prefixes)
+            log_files[log_file.filename] = logs
+        return log_files
+
+    
+    def find_logs_by_op(self, op: str) -> Dict[str, List[Log]]:
+        log_files: Dict[str, List[Log]] = {}
+        event_prefixes = [op]
+        for log_file in self.log_files.values():
+            logs = log_file.find_logs_by_prefix(event_prefix)
+            log_files[log_file.filename] = logs
+        return log_files
+
+
+    def log_names(self) -> tuple:
+        names = ()
+        for log_file in self.log_files.values():
+            names += log_file.logs[0].name,
+        return tuple(sorted(names))
+
+
+    def __iter__(self):
+        return iter(self.compose_logs())

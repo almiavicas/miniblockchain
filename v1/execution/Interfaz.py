@@ -14,10 +14,11 @@ from utils import (
     get_gpg,
     get_fingerprints,
     parse_config_file,
-    parse_log_file,
     Event,
     LOCALHOST,
     BUFSIZE,
+    LogService,
+    Log,
 )
 from collections import OrderedDict
 
@@ -109,144 +110,129 @@ def getNodeNames():
 
     
 class Application:
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self, root: Tk, logs_dir):
+        self.root = root
+        self.root.title("Visualizer")
+        self.logs_service = LogService(logs_dir)
+        self.logs_iterator = None
+        self.last_log = None
 
-    def make_interfaz(self, f, c):
-        global asociacionCombo
+
+    def make_interfaz(self, rows, cols):
+        self.root.geometry('{}x{}'.format(1250, 850))
+
+        self.root.geometry(f"{1250}x{850}")
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_rowconfigure(1, weight=1)
+        # Top frame
+        top_frame = Frame(self.root, background="green", width=800, height=50, pady=3)
+        top_frame.grid(row=0, sticky="ew")
+
+        model_lb = Label(top_frame, text="Seleccione: ")
+        model_lb.grid(row=0, column=0)
+
+        data_type_values = ("Todos", "Bloques", "Transacciones")
+        data_type_sv = StringVar()
+        data_type_cb = ttk.Combobox(top_frame, textvariable=data_type_sv)
+        data_type_cb["values"] = data_type_values
+        data_type_cb.current(0)
+        data_type_cb["state"] = "readonly"
+        data_type_cb.grid(row=0, column=1)
+
+        value_lb = Label(top_frame, text="Valor (opc): ")
+        value_lb.grid(row=1, column=0)
+
+        tx_block_entry = Entry(top_frame, background="red")
+        tx_block_entry.grid(row=1, column=1)
+
+        ts_start_lb = Label(top_frame, text="Tiempo Inicio: ")
+        ts_start_lb.grid(row=0, column=3)
+        ts_end_lb = Label(top_frame, text="Tiempo Final: ")
+        ts_end_lb.grid(row=1, column=3)
+
+        ts_start_sv = StringVar()
+        ts_start_entry = Entry(top_frame, background="pink", textvariable=ts_start_sv)
+        ts_start_entry.grid(row=0, column=4)
+
+        ts_end_sv = StringVar()
+        ts_end_entry = Entry(top_frame, background="pink", textvariable=ts_end_sv)
+        ts_end_entry.grid(row=1, column=4)
+
+        next_btn = Button(top_frame, text="Next", bg="cyan", command=self.next_logs)
+        next_btn.grid(row=2, column=3)
+
+
+        # ttk.Label(top_frame, text="Hello World!").grid(column=0, row=0)
+        # ttk.Button(top_frame, text="Quit", command=self.root.destroy).grid(column=1, row=0)
+
+        # Center frame
+        center_frame = Frame(self.root, background="blue", width=800, height=550, padx=3, pady=3)
+        center_frame.grid(row=1, columnspan=4, sticky="nsew")
+
+        height = math.trunc(40/rows)
+        width = math.trunc(153/cols)
+
+        node_names = self.logs_service.log_names()
+
+        iterator = iter(node_names)
+
+        finish = False
+        self.node_svs = []
+        self.node_entries = []
+        for i in range(0, rows):
+            for j in range(0, cols):
+                node_name = next(iterator, None)
+                if node_name is None:
+                    finish = True
+                    break
+                node_sv = StringVar()
+                node_cb = ttk.Combobox(center_frame, textvariable=node_sv)
+                node_cb["values"] = node_names
+                node_cb["state"] = "readonly"
+                node_cb.grid(row=i*2, column=j)
+                node_cb.current(i * rows + j)
+
+                entry = Text(center_frame, height=height, width=width)
+                # entry.config(state=DISABLED)
+                entry.grid(row=i*2+1, column=j)
+                # scrollbar = ttk.Scrollbar(center_frame, command=entry.yview)
+                # scrollbar.grid(row=i*2+1, column=j*2+1, sticky="nsew")
+                # entry["yscrollcommand"] = scrollbar.set
+                self.node_svs.append(node_sv)
+                self.node_entries.append(entry)
+            if finish:
+                break
         
-        root.title('Model Definition')
-        root.geometry('{}x{}'.format(1250, 850))
+        return self.root
 
-        # create all of the main containers
-        top_frame = Frame(root, bg='green', width=800, height=50, pady=3)
-        center    = Frame(root, bg='blue', width=800, height=550, padx=3, pady=3)
 
-        # layout all of the main containers
-        root.grid_rowconfigure(0, weight=1)
-        root.grid_rowconfigure(1, weight=1)
-        root.grid_rowconfigure(2, weight=1)
-        root.grid_rowconfigure(3, weight=1)
-        root.grid_rowconfigure(4, weight=2)
-        root.grid_rowconfigure(5, weight=1)
-        root.grid_rowconfigure(6, weight=2)
-        root.grid_rowconfigure(7, weight=1)
-        root.grid_rowconfigure(8, weight=2)
-        root.grid_rowconfigure(9, weight=1)
-        root.grid_rowconfigure(10, weight=2)
+    def next_logs(self):
+        if self.logs_iterator is None:
+            self.logs_iterator = iter(self.logs_service)
+            self.last_log = next(self.logs_iterator, None)
+        next_log = next(self.logs_iterator, None)
+        while self.last_log is not None:
+            for i, node_sv in enumerate(self.node_svs):
+                if node_sv.get() == next_log.name:
+                    self.node_entries[i].insert(END, str(next_log) + "\n")
+            next_log = next(self.logs_iterator, None)
+            if next_log is None or self.last_log.dt != next_log.dt:
+                break
+            else:
+                self.last_log = next_log
+        self.last_log = next_log
 
-        root.grid_columnconfigure(0, weight=1)
-        root.grid_columnconfigure(1, weight=1)
-        root.grid_columnconfigure(2, weight=1)
-        root.grid_columnconfigure(3, weight=1)
 
-        top_frame.grid(row=0, sticky="ew", rowspan=2)
-        center.grid(row=2, rowspan=8, columnspan=4, sticky="nsew")
-
-        global tipoDato_cb, entry_transaccion_bloque
-        datoValores = ('Todos', 'Bloques', 'Transacciones')
-        self.tipoDatoSelected = StringVar()
-        tipoDato_cb = ttk.Combobox(top_frame, textvariable=self.tipoDatoSelected)
-        tipoDato_cb['values'] = datoValores
-        tipoDato_cb.current(0)
-
-        tipoDato_cb['state'] = 'readonly'  # normal
-
-        tipoDato_cb.grid(row=0, column=1)
-       
-        model_label  = Label(top_frame, text='Seleccione: ')
-        val_label  = Label(top_frame, text='Valor(Opc): ')
-        entry_transaccion_bloque      = Entry(top_frame, background="red")
         
-        # layout the widgets in the top frame
 
-        model_label.grid(row=0, column=0)
-        val_label.grid(row=1, column=0)
-        entry_transaccion_bloque.grid(row=1, column=1)
-
-        global tipoAccion_cb
-        accionValores = ('Todos', 'Presentacion', 'Transacción Nueva', 'Transacción Propaga', 'Bloque Propaga' )
-        self.tipoAccionSelected = StringVar()
-        tipoAccion_cb = ttk.Combobox(top_frame, textvariable=self.tipoAccionSelected)
-        tipoAccion_cb['values'] = accionValores
-        tipoAccion_cb.current(0)
-
-        tipoAccion_cb['state'] = 'readonly'  # normal
-
-        tipoAccion_cb.grid(row=0, column=2)
-       
-        # layout the widgets in the top frame
-
-        timeStampIni_label  = Label(top_frame, text='Tiempo Inico: ')
-        timeStampFin_label  = Label(top_frame, text='Tiempo Final: ')
-
-        timeStampIni_label.grid(row=0, column=3)
-        timeStampFin_label.grid(row=1, column=3)
-        global tsi, tsf
-        tsie = StringVar()
-        tsfe = StringVar()
-
-        tsi = Entry(top_frame, background="pink", textvariable=tsie)
-        tsf = Entry(top_frame, background="pink", textvariable=tsfe)
-        tsi.grid(row=0, column=4)
-        tsf.grid(row=1, column=4)
-
-        tsie.set(fechaI)
-        tsfe.set(fechaF)
-
-        botonGo = Button(top_frame, text='Next', bg='cyan', command=NextEntry)
-
-        botonGo.grid(column=3, row=2)
-
-        # create the widgets for the bottom frame
-        hei = math.trunc(40/f)
-        wid = math.trunc(153/c)
-        
-        k = 0
-        global node_cbs
-        node_cbs = []
-        for j in range(1,f*2,2):
-            for i in range(c):        
-                nodes = getNodeNames()
-
-                self.selected_Node = StringVar()
-                node_cb = ttk.Combobox(center, textvariable=self.selected_Node)
-                
-                node_cb['values'] = nodes
-                node_cb['state'] = 'readonly'  # normal
-             
-                node_cb.grid(row =2+j, column =i)
-        
-                entry = Text(center, height = hei, width = wid)
-                entry.config(state=DISABLED)
-
-                entry.grid(row=3+j, column=i)
-                k = k + 1
-
-                node_cbs.append((node_cb, entry))
-                
-
-        MaxCombos = 1
-        if (f > 1):
-            MaxCombos = 16
-
-        k= 0
-        for (i, j) in node_cbs[0:MaxCombos]:
-            i.current(k)
-            k=k+1
-        
-        return root
 
 nodeNames = ()
 
 d = sys.argv[1]
 
-# Leer logs
-leer(d)
-
 root = Tk()
 
-app = Application(root)
+app = Application(root, d)
 
 if sys.argv[2] == "-mt":
     r = app.make_interfaz(1, 1)
