@@ -33,3 +33,13 @@ We have a transactions generator that you can use and configure to send dummy tr
 ```bash
 ./genTransac -f genTransac.config.txt -n genTransac.nodo.txt -d logs/
 ```
+
+## Block explorer
+The block explorer allows you to retrieve blocks information by requesting a specific height or specific block hash.
+
+To use the block explorer run the following:
+```bash
+./exploradorBloque <node> <port> [-a <height>] [-h <hash>]
+```
+- The `node` parameter specifies the node identity which will receive the request. It should 
+- The `port` specifies the node port.
