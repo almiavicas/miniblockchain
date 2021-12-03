@@ -224,7 +224,7 @@ class Master:
             sock.sendto(dumps(response).encode(), address)
         if tx is not None:
             self.mempool.add_transaction(tx)
-            self.log.info("Transactions in mempool: %d | %s", len(self.mempool), tx.hash)
+            self.log.info("Transactions in mempool: %d | %s", len(self.mempool), tx._hash)
             propagation_data = {
                 **data,
                 "transaction": tx.to_dict(),
@@ -261,7 +261,7 @@ class Master:
         # Insertion
         if validated and self.mempool.find_transaction(tx._hash) is None:
             self.mempool.add_transaction(tx)
-            self.log.info("Transactions in mempool: %d | %s", len(self.mempool), tx.hash)
+            self.log.info("Transactions in mempool: %d | %s", len(self.mempool), tx._hash)
             # Propagation
             for n in self.neighbors.values():
                 if n.is_active and n.port != sender_port:

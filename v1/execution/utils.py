@@ -7,7 +7,7 @@ from gnupg import GPG
 from datetime import datetime
 
 LOCALHOST = "127.0.0.1"
-BUFSIZE = 2**13
+BUFSIZE = 2**14
 
 Event = Enum(
     "Event",

@@ -42,6 +42,7 @@ class TransactionGenerator:
         self.min_output = min_output
         self.max_output = max_output
         self.nodes_config = nodes_config
+        print(nodes_config)
         self.fingerprints = fingerprints
         self.wallets = WalletList()
         self.next_block = 0
@@ -57,13 +58,13 @@ class TransactionGenerator:
             sender = choice(list(self.fingerprints.keys()))
             tx = self.generate_transaction(sender)
             receiver_node = choice(list(self.nodes_config.keys()))
-            self.log.info("Sending transaction from %s to %s | %s", sender, receiver_node, tx.hash)
+            self.log.info("Sending transaction from %s to %s | %s", sender, receiver_node, tx._hash)
             self.send_transaction(sender, tx, receiver_node)
             response = self.sock.recv(BUFSIZE)
             response_json = loads(response.decode())
-            self.log_event(response_json["event"], receiver_node, tx.hash)
+            self.log_event(response_json["event"], receiver_node, tx._hash)
             status = response_json["data"]["status"]
-            self.log.info("Transaction accepted: %s | %s", status, tx.hash)
+            self.log.info("Transaction accepted: %s | %s", status, tx._hash)
             self.log.info("Requesting latest block")
             self.request_and_update_latest_block(receiver_node)
             self.log.info("Sleeping for %d seconds", 60 // self.frequency)
