@@ -57,13 +57,13 @@ class TransactionGenerator:
             sender = choice(list(self.fingerprints.keys()))
             tx = self.generate_transaction(sender)
             receiver_node = choice(list(self.nodes_config.keys()))
-            self.log.info("Sending transaction from %s to %s", sender, receiver_node)
+            self.log.info("Sending transaction from %s to %s | %s", sender, receiver_node, tx.hash)
             self.send_transaction(sender, tx, receiver_node)
             response = self.sock.recv(BUFSIZE)
             response_json = loads(response.decode())
-            self.log_event(response_json["event"], receiver_node)
+            self.log_event(response_json["event"], receiver_node, tx.hash)
             status = response_json["data"]["status"]
-            self.log.info("Transaction accepted: %s", status)
+            self.log.info("Transaction accepted: %s | %s", status, tx.hash)
             self.log.info("Requesting latest block")
             self.request_and_update_latest_block(receiver_node)
             self.log.info("Sleeping for %d seconds", 60 // self.frequency)
@@ -108,13 +108,13 @@ class TransactionGenerator:
                         self.wallets.add_unit_value_to_wallet(fingerprint_hash, uv)
 
 
-    def log_event(self, event: int, sender: str):
+    def log_event(self, event: int, sender: str, tx_hash: str):
         received_event = None
         if event == Event.NEW_TRANSACTION_ACK.value:
             received_event = Event.NEW_TRANSACTION_ACK
         elif event == Event.BLOCK_EXPLORE_ACK.value:
             received_event = Event.BLOCK_EXPLORE_ACK
-        self.log.info("%s received from %s", received_event, sender)
+        self.log.info("%s received from %s | %s", received_event, sender, tx_hash)
 
 
     def init_wallets(self):
